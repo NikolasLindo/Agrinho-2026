@@ -5,9 +5,44 @@
     <title>AgroDash Rural - Agrinho 2026</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; z-index: 10; }
-        .score-box { background: rgba(58, 95, 11, 0.8); padding: 15px; border-radius: 20px; border: 3px solid #FFD700; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .score { font-size: 35px; color: #FFD700; font-weight: bold; }
+        
+        /* Interface de Cima */
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; z-index: 5; }
+        .score-box { background: rgba(58, 95, 11, 0.8); padding: 10px 25px; border-radius: 20px; border: 2px solid #FFD700; display: inline-block; }
+        .score { font-size: 30px; color: #FFD700; font-weight: bold; }
+
+        /* Painel de Game Over (Escondido por padrão) */
+        #gameOverPanel {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 30px;
+            border: 8px solid #3A5F0B;
+            text-align: center;
+            display: none; /* Escondido */
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            min-width: 300px;
+        }
+
+        #gameOverPanel h2 { color: #cc0000; font-size: 40px; margin: 0; }
+        #gameOverPanel p { color: #333; font-size: 20px; margin: 20px 0; }
+        
+        .btn-restart {
+            background: #3A5F0B;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-restart:hover { background: #558B0F; transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -15,8 +50,14 @@
     <div id="ui">
         <div class="score-box">
             <div class="score">Sementes: <span id="scoreVal">0</span></div>
-            <p><b>Rumo ao Futuro Sustentável!</b><br>Use as SETAS para guiar o trator.</p>
         </div>
+    </div>
+
+    <div id="gameOverPanel">
+        <h2>FIM DE JOGO!</h2>
+        <p>A poluição prejudicou a colheita.</p>
+        <p>Você coletou: <b id="finalScore" style="color: #3A5F0B;">0</b> sementes.</p>
+        <button class="btn-restart" onclick="restartGame()">RECOMEÇAR</button>
     </div>
 
     <script type="importmap">
@@ -26,9 +67,9 @@
 <script type="module">
     import * as THREE from 'three';
 
-    // --- CONFIGURAÇÃO DA CENA ---
+    // --- CONFIGURAÇÃO ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // Céu Azul
+    scene.background = new THREE.Color(0x87CEEB);
     scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -36,72 +77,54 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Luz Solar
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(10, 20, 10);
     scene.add(sun);
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-    // --- VARIÁVEIS DO JOGO ---
+    // --- ESTADO DO JOGO ---
+    let gameRunning = true;
+    let score = 0;
     const speed = 0.8;
     const lanes = [-4, 0, 4];
     let currentLane = 1;
-    let score = 0;
 
-    // --- CHÃO RURAL (TERRA E GRAMA) ---
-    // Estrada de Terra
-    const roadGeo = new THREE.PlaneGeometry(12, 1000);
-    const roadMat = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); // Marrom terra
-    const road = new THREE.Mesh(roadGeo, roadMat);
+    // --- ELEMENTOS DO CENÁRIO ---
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), new THREE.MeshPhongMaterial({ color: 0x8B4513 }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // Gramado Lateral
-    const grassGeo = new THREE.PlaneGeometry(100, 1000);
-    const grassMat = new THREE.MeshPhongMaterial({ color: 0x228B22 }); // Verde grama
-    const grass = new THREE.Mesh(grassGeo, grassMat);
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(100, 1000), new THREE.MeshPhongMaterial({ color: 0x228B22 }));
     grass.rotation.x = -Math.PI / 2;
-    grass.position.y = -0.1; // Ligeiramente abaixo da estrada
+    grass.position.y = -0.1;
     scene.add(grass);
 
-    // --- CENÁRIO (ÁRVORES E CELEIROS) ---
     const sceneryItems = [];
     function createScenery(z) {
-        // Árvore Simples (Tronco + Copa)
         const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 2);
-        const trunkMat = new THREE.MeshPhongMaterial({ color: 0x5D3A1A });
         const leafGeo = new THREE.SphereGeometry(2);
         const leafMat = new THREE.MeshPhongMaterial({ color: 0x006400 });
 
-        const createTree = (x) => {
-            const tree = new THREE.Group();
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            const leaves = new THREE.Mesh(leafGeo, leafMat);
-            leaves.position.y = 2;
-            tree.add(trunk);
-            tree.add(leaves);
-            tree.position.set(x, 1, z);
-            scene.add(tree);
-            sceneryItems.push(tree);
-        };
-
-        createTree(-12 - Math.random() * 5); // Lado Esquerdo
-        createTree(12 + Math.random() * 5);  // Lado Direito
+        const tree = new THREE.Group();
+        tree.add(new THREE.Mesh(trunkGeo, new THREE.MeshPhongMaterial({ color: 0x5D3A1A })));
+        const leaves = new THREE.Mesh(leafGeo, leafMat);
+        leaves.position.y = 2;
+        tree.add(leaves);
+        
+        const xPos = Math.random() > 0.5 ? 12 + Math.random()*5 : -12 - Math.random()*5;
+        tree.position.set(xPos, 1, z);
+        scene.add(tree);
+        sceneryItems.push(tree);
     }
+    for (let i = 0; i < 25; i++) createScenery(-i * 15);
 
-    for (let i = 0; i < 25; i++) {
-        createScenery(-i * 15);
-    }
-
-    // --- JOGADOR (TRATOR VERDE) ---
-    const trator = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 2), new THREE.MeshPhongMaterial({color: 0x3A5F0B}));
-    const cabine = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 0xffffff, transparent: true, opacity: 0.7}));
-    cabine.position.y = 1.1;
-    cabine.position.z = -0.3;
-    trator.add(body);
-    trator.add(cabine);
-    scene.add(trator);
+    // --- JOGADOR ---
+    const player = new THREE.Group();
+    player.add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 2), new THREE.MeshPhongMaterial({color: 0x3A5F0B})));
+    const cabine = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 0xffffff, transparent: true, opacity: 0.6}));
+    cabine.position.set(0, 1.1, -0.3);
+    player.add(cabine);
+    scene.add(player);
 
     camera.position.set(0, 6, 10);
     camera.lookAt(0, 0, -5);
@@ -111,20 +134,20 @@
     const items = [];
 
     window.addEventListener('keydown', (e) => {
+        if (!gameRunning) return;
         if (e.key === "ArrowLeft" && currentLane > 0) currentLane--;
         if (e.key === "ArrowRight" && currentLane < 2) currentLane++;
     });
 
     function spawn() {
+        if (!gameRunning) return;
         const lane = lanes[Math.floor(Math.random() * 3)];
         if (Math.random() > 0.5) {
-            // Obstáculo: Barril de Poluição
             const obs = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8), new THREE.MeshPhongMaterial({color: 0x333333}));
             obs.position.set(lane, 0.9, -100);
             scene.add(obs);
             obstacles.push(obs);
         } else {
-            // Item: Semente Dourada
             const item = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshPhongMaterial({color: 0xFFD700}));
             item.position.set(lane, 1, -100);
             scene.add(item);
@@ -133,35 +156,42 @@
     }
     setInterval(spawn, 900);
 
-    // --- LOOP DE ANIMAÇÃO ---
+    // --- FUNÇÃO DE GAME OVER ---
+    function endGame() {
+        gameRunning = false;
+        document.getElementById('gameOverPanel').style.display = 'block';
+        document.getElementById('finalScore').innerText = score;
+    }
+
+    // --- REINICIAR (Acessível globalmente) ---
+    window.restartGame = () => {
+        location.reload();
+    };
+
     function animate() {
         requestAnimationFrame(animate);
+        if (!gameRunning) return;
 
-        trator.position.x = THREE.MathUtils.lerp(trator.position.x, lanes[currentLane], 0.15);
+        player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
 
-        // Move Cenário (Árvores)
         sceneryItems.forEach(item => {
             item.position.z += speed;
-            if (item.position.z > 20) {
-                item.position.z = -200;
-            }
+            if (item.position.z > 20) item.position.z = -200;
         });
 
-        // Move Obstáculos
         obstacles.forEach((obs, i) => {
             obs.position.z += speed;
             if (obs.position.z > 15) { scene.remove(obs); obstacles.splice(i, 1); }
-            if (obs.position.z > -1 && obs.position.z < 1 && Math.abs(obs.position.x - trator.position.x) < 1.5) {
-                alert("Game Over! Proteja o solo contra resíduos. Sementes: " + score);
-                location.reload();
+            // Colisão
+            if (obs.position.z > -1 && obs.position.z < 1 && Math.abs(obs.position.x - player.position.x) < 1.5) {
+                endGame();
             }
         });
 
-        // Move Itens
         items.forEach((item, i) => {
             item.position.z += speed;
             item.rotation.y += 0.05;
-            if (item.position.z > -1 && item.position.z < 1 && Math.abs(item.position.x - trator.position.x) < 1.5) {
+            if (item.position.z > -1 && item.position.z < 1 && Math.abs(item.position.x - player.position.x) < 1.5) {
                 scene.remove(item);
                 items.splice(i, 1);
                 score += 10;
