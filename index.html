@@ -2,11 +2,11 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>AgroDash 3D - Velocidade Real</title>
+    <title>AgroDash 3D - Com Calçadas</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; z-index: 10; }
-        .score-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 15px; border: 2px solid #ADFF2F; }
+        .score-box { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 15px; border: 2px solid #ADFF2F; }
         .score { font-size: 35px; color: #ADFF2F; font-weight: bold; }
     </style>
 </head>
@@ -15,7 +15,7 @@
     <div id="ui">
         <div class="score-box">
             <div class="score">Sementes: <span id="scoreVal">0</span></div>
-            <p>Sinta a velocidade do Agro!</p>
+            <p>A cidade ganhou calçadas! Desvie dos barris.</p>
         </div>
     </div>
 
@@ -26,41 +26,54 @@
 <script type="module">
     import * as THREE from 'three';
 
-    // --- CONFIGURAÇÃO INICIAL ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 10, 60);
+    scene.fog = new THREE.Fog(0x87CEEB, 10, 70);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
-    sunLight.position.set(5, 15, 5);
-    scene.add(sunLight);
+    const light = new THREE.DirectionalLight(0xffffff, 1.2);
+    light.position.set(5, 20, 5);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-    // --- VARIÁVEIS DE MOVIMENTO ---
-    const speed = 0.8; // Velocidade do mundo
+    // --- VARIÁVEIS ---
+    const speed = 0.9;
     const lanes = [-4, 0, 4];
     let currentLane = 1;
     let score = 0;
 
-    // --- CRIAÇÃO DO CHÃO INFINITO ---
-    const roadGeo = new THREE.PlaneGeometry(12, 200);
+    // --- ESTRADA CENTRAL (ASFALTO) ---
+    const roadGeo = new THREE.PlaneGeometry(12, 1000);
     const roadMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // --- PRÉDIOS (CENÁRIO EM LOOP) ---
+    // --- CALÇADAS (CHÃO DOS PRÉDIOS) ---
+    // Calçada Esquerda
+    const sideGeo = new THREE.PlaneGeometry(20, 1000);
+    const sideMat = new THREE.MeshPhongMaterial({ color: 0x999999 }); // Cinza claro
+    const sidewalkLeft = new THREE.Mesh(sideGeo, sideMat);
+    sidewalkLeft.rotation.x = -Math.PI / 2;
+    sidewalkLeft.position.set(-16, 0.05, 0); // Um pouco acima da estrada para não bugar o visual
+    scene.add(sidewalkLeft);
+
+    // Calçada Direita
+    const sidewalkRight = sidewalkLeft.clone();
+    sidewalkRight.position.set(16, 0.05, 0);
+    scene.add(sidewalkRight);
+
+    // --- PRÉDIOS ---
     const buildings = [];
     function createBuilding(z) {
-        const h = Math.random() * 15 + 5;
-        const geo = new THREE.BoxGeometry(4, h, 4);
-        const mat = new THREE.MeshPhongMaterial({ color: 0x707070 });
+        const h = Math.random() * 15 + 8;
+        const w = 6;
+        const geo = new THREE.BoxGeometry(w, h, 6);
+        const mat = new THREE.MeshPhongMaterial({ color: 0x666666 });
         
         const bLeft = new THREE.Mesh(geo, mat);
         bLeft.position.set(-10, h/2, z);
@@ -73,21 +86,20 @@
         buildings.push(bRight);
     }
 
-    // Criar prédios iniciais ao longo da estrada
     for (let i = 0; i < 20; i++) {
-        createBuilding(-i * 10);
+        createBuilding(-i * 12);
     }
 
     // --- JOGADOR ---
     const player = new THREE.Mesh(
         new THREE.BoxGeometry(1.2, 1.2, 1.2),
-        new THREE.MeshPhongMaterial({ color: 0x228B22 }) // Verde Agro
+        new THREE.MeshPhongMaterial({ color: 0x228B22 })
     );
     player.position.y = 0.6;
     scene.add(player);
 
     camera.position.set(0, 5, 8);
-    camera.lookAt(0, 1, -5);
+    camera.lookAt(0, 1, -2);
 
     // --- OBSTÁCULOS E ITENS ---
     const obstacles = [];
@@ -114,29 +126,27 @@
     }
     setInterval(spawn, 1000);
 
-    // --- LOOP DE ANIMAÇÃO ---
+    // --- ANIMAÇÃO ---
     function animate() {
         requestAnimationFrame(animate);
 
-        // 1. Move o Jogador lateralmente
         player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
 
-        // 2. MOVE O CENÁRIO (PRÉDIOS) PARA TRÁS
+        // Movendo os prédios para criar efeito de corrida
         buildings.forEach(b => {
             b.position.z += speed;
-            // Se o prédio passou do jogador, joga ele lá pra frente de novo (Loop)
             if (b.position.z > 15) {
-                b.position.z = -150; 
-                b.scale.y = Math.random() * 2 + 0.5; // Muda a altura pra variar
+                b.position.z = -150;
+                b.scale.y = Math.random() * 2 + 0.5;
             }
         });
 
-        // 3. Move Obstáculos e Itens (Eles vêm mais rápido que o cenário)
+        // Obstáculos e itens
         obstacles.forEach((obs, i) => {
-            obs.position.z += speed; 
+            obs.position.z += speed;
             if (obs.position.z > 10) { scene.remove(obs); obstacles.splice(i, 1); }
             if (obs.position.z > -0.7 && obs.position.z < 0.7 && Math.abs(obs.position.x - player.position.x) < 1.2) {
-                alert("Opa! Cuidado com os resíduos urbanos. Pontos: " + score);
+                alert("Fim de jogo! Pontos: " + score);
                 location.reload();
             }
         });
