@@ -2,12 +2,12 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>AgroDash 3D - Com Calçadas</title>
+    <title>AgroDash Rural - Agrinho 2026</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; z-index: 10; }
-        .score-box { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 15px; border: 2px solid #ADFF2F; }
-        .score { font-size: 35px; color: #ADFF2F; font-weight: bold; }
+        .score-box { background: rgba(58, 95, 11, 0.8); padding: 15px; border-radius: 20px; border: 3px solid #FFD700; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .score { font-size: 35px; color: #FFD700; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -15,7 +15,7 @@
     <div id="ui">
         <div class="score-box">
             <div class="score">Sementes: <span id="scoreVal">0</span></div>
-            <p>A cidade ganhou calçadas! Desvie dos barris.</p>
+            <p><b>Rumo ao Futuro Sustentável!</b><br>Use as SETAS para guiar o trator.</p>
         </div>
     </div>
 
@@ -26,80 +26,85 @@
 <script type="module">
     import * as THREE from 'three';
 
+    // --- CONFIGURAÇÃO DA CENA ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 10, 70);
+    scene.background = new THREE.Color(0x87CEEB); // Céu Azul
+    scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.DirectionalLight(0xffffff, 1.2);
-    light.position.set(5, 20, 5);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    // Luz Solar
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+    sun.position.set(10, 20, 10);
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-    // --- VARIÁVEIS ---
-    const speed = 0.9;
+    // --- VARIÁVEIS DO JOGO ---
+    const speed = 0.8;
     const lanes = [-4, 0, 4];
     let currentLane = 1;
     let score = 0;
 
-    // --- ESTRADA CENTRAL (ASFALTO) ---
+    // --- CHÃO RURAL (TERRA E GRAMA) ---
+    // Estrada de Terra
     const roadGeo = new THREE.PlaneGeometry(12, 1000);
-    const roadMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+    const roadMat = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); // Marrom terra
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // --- CALÇADAS (CHÃO DOS PRÉDIOS) ---
-    // Calçada Esquerda
-    const sideGeo = new THREE.PlaneGeometry(20, 1000);
-    const sideMat = new THREE.MeshPhongMaterial({ color: 0x999999 }); // Cinza claro
-    const sidewalkLeft = new THREE.Mesh(sideGeo, sideMat);
-    sidewalkLeft.rotation.x = -Math.PI / 2;
-    sidewalkLeft.position.set(-16, 0.05, 0); // Um pouco acima da estrada para não bugar o visual
-    scene.add(sidewalkLeft);
+    // Gramado Lateral
+    const grassGeo = new THREE.PlaneGeometry(100, 1000);
+    const grassMat = new THREE.MeshPhongMaterial({ color: 0x228B22 }); // Verde grama
+    const grass = new THREE.Mesh(grassGeo, grassMat);
+    grass.rotation.x = -Math.PI / 2;
+    grass.position.y = -0.1; // Ligeiramente abaixo da estrada
+    scene.add(grass);
 
-    // Calçada Direita
-    const sidewalkRight = sidewalkLeft.clone();
-    sidewalkRight.position.set(16, 0.05, 0);
-    scene.add(sidewalkRight);
+    // --- CENÁRIO (ÁRVORES E CELEIROS) ---
+    const sceneryItems = [];
+    function createScenery(z) {
+        // Árvore Simples (Tronco + Copa)
+        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 2);
+        const trunkMat = new THREE.MeshPhongMaterial({ color: 0x5D3A1A });
+        const leafGeo = new THREE.SphereGeometry(2);
+        const leafMat = new THREE.MeshPhongMaterial({ color: 0x006400 });
 
-    // --- PRÉDIOS ---
-    const buildings = [];
-    function createBuilding(z) {
-        const h = Math.random() * 15 + 8;
-        const w = 6;
-        const geo = new THREE.BoxGeometry(w, h, 6);
-        const mat = new THREE.MeshPhongMaterial({ color: 0x666666 });
-        
-        const bLeft = new THREE.Mesh(geo, mat);
-        bLeft.position.set(-10, h/2, z);
-        scene.add(bLeft);
-        buildings.push(bLeft);
+        const createTree = (x) => {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            const leaves = new THREE.Mesh(leafGeo, leafMat);
+            leaves.position.y = 2;
+            tree.add(trunk);
+            tree.add(leaves);
+            tree.position.set(x, 1, z);
+            scene.add(tree);
+            sceneryItems.push(tree);
+        };
 
-        const bRight = new THREE.Mesh(geo, mat);
-        bRight.position.set(10, h/2, z);
-        scene.add(bRight);
-        buildings.push(bRight);
+        createTree(-12 - Math.random() * 5); // Lado Esquerdo
+        createTree(12 + Math.random() * 5);  // Lado Direito
     }
 
-    for (let i = 0; i < 20; i++) {
-        createBuilding(-i * 12);
+    for (let i = 0; i < 25; i++) {
+        createScenery(-i * 15);
     }
 
-    // --- JOGADOR ---
-    const player = new THREE.Mesh(
-        new THREE.BoxGeometry(1.2, 1.2, 1.2),
-        new THREE.MeshPhongMaterial({ color: 0x228B22 })
-    );
-    player.position.y = 0.6;
-    scene.add(player);
+    // --- JOGADOR (TRATOR VERDE) ---
+    const trator = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 2), new THREE.MeshPhongMaterial({color: 0x3A5F0B}));
+    const cabine = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 0xffffff, transparent: true, opacity: 0.7}));
+    cabine.position.y = 1.1;
+    cabine.position.z = -0.3;
+    trator.add(body);
+    trator.add(cabine);
+    scene.add(trator);
 
-    camera.position.set(0, 5, 8);
-    camera.lookAt(0, 1, -2);
+    camera.position.set(0, 6, 10);
+    camera.lookAt(0, 0, -5);
 
     // --- OBSTÁCULOS E ITENS ---
     const obstacles = [];
@@ -113,47 +118,50 @@
     function spawn() {
         const lane = lanes[Math.floor(Math.random() * 3)];
         if (Math.random() > 0.5) {
-            const obs = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshPhongMaterial({color: 0xcc0000}));
-            obs.position.set(lane, 0.75, -80);
+            // Obstáculo: Barril de Poluição
+            const obs = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8), new THREE.MeshPhongMaterial({color: 0x333333}));
+            obs.position.set(lane, 0.9, -100);
             scene.add(obs);
             obstacles.push(obs);
         } else {
-            const item = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshPhongMaterial({color: 0xffff00}));
-            item.position.set(lane, 0.8, -80);
+            // Item: Semente Dourada
+            const item = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshPhongMaterial({color: 0xFFD700}));
+            item.position.set(lane, 1, -100);
             scene.add(item);
             items.push(item);
         }
     }
-    setInterval(spawn, 1000);
+    setInterval(spawn, 900);
 
-    // --- ANIMAÇÃO ---
+    // --- LOOP DE ANIMAÇÃO ---
     function animate() {
         requestAnimationFrame(animate);
 
-        player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
+        trator.position.x = THREE.MathUtils.lerp(trator.position.x, lanes[currentLane], 0.15);
 
-        // Movendo os prédios para criar efeito de corrida
-        buildings.forEach(b => {
-            b.position.z += speed;
-            if (b.position.z > 15) {
-                b.position.z = -150;
-                b.scale.y = Math.random() * 2 + 0.5;
+        // Move Cenário (Árvores)
+        sceneryItems.forEach(item => {
+            item.position.z += speed;
+            if (item.position.z > 20) {
+                item.position.z = -200;
             }
         });
 
-        // Obstáculos e itens
+        // Move Obstáculos
         obstacles.forEach((obs, i) => {
             obs.position.z += speed;
-            if (obs.position.z > 10) { scene.remove(obs); obstacles.splice(i, 1); }
-            if (obs.position.z > -0.7 && obs.position.z < 0.7 && Math.abs(obs.position.x - player.position.x) < 1.2) {
-                alert("Fim de jogo! Pontos: " + score);
+            if (obs.position.z > 15) { scene.remove(obs); obstacles.splice(i, 1); }
+            if (obs.position.z > -1 && obs.position.z < 1 && Math.abs(obs.position.x - trator.position.x) < 1.5) {
+                alert("Game Over! Proteja o solo contra resíduos. Sementes: " + score);
                 location.reload();
             }
         });
 
+        // Move Itens
         items.forEach((item, i) => {
             item.position.z += speed;
-            if (item.position.z > -0.7 && item.position.z < 0.7 && Math.abs(item.position.x - player.position.x) < 1.2) {
+            item.rotation.y += 0.05;
+            if (item.position.z > -1 && item.position.z < 1 && Math.abs(item.position.x - trator.position.x) < 1.5) {
                 scene.remove(item);
                 items.splice(i, 1);
                 score += 10;
