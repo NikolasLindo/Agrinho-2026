@@ -1,107 +1,149 @@
-export default function AgroRunnerGame() {
-  return (
-    <div className="min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-green-200 to-green-500 relative font-sans">
-      {/* Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-10 left-10 text-7xl opacity-40 animate-pulse">☁️</div>
-        <div className="absolute top-24 right-20 text-6xl opacity-40 animate-pulse">☁️</div>
-        <div className="absolute top-40 left-1/3 text-5xl opacity-30 animate-pulse">☁️</div>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>AgroDash Sustentável - Agrinho 2026</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        canvas { display: block; background: #7cfc00; margin: 0 auto; border-left: 5px solid #555; border-right: 5px solid #555; }
+        #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+        h1 { color: white; text-shadow: 2px 2px #000; margin: 0; }
+        .score { font-size: 24px; color: yellow; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-        <div className="absolute bottom-0 w-full h-48 bg-gradient-to-t from-green-800 to-green-600"></div>
-      </div>
+    <div id="ui">
+        <h1>AGRO DASH 2026</h1>
+        <div class="score">Sementes: <span id="scoreVal">0</span></div>
+        <p>Use as setas <b>ESQUERDA / DIREITA</b> para mover</p>
+    </div>
 
-      {/* HUD */}
-      <div className="absolute top-0 left-0 w-full z-50 p-6 flex justify-between items-center">
-        <div className="backdrop-blur-xl bg-white/20 border border-white/30 rounded-3xl px-6 py-4 shadow-2xl text-white">
-          <p className="text-sm uppercase tracking-widest opacity-80">Pontuação</p>
-          <h2 className="text-4xl font-black">12.480</h2>
-        </div>
+    <canvas id="gameCanvas"></canvas>
 
-        <div className="backdrop-blur-xl bg-white/20 border border-white/30 rounded-3xl px-6 py-4 shadow-2xl text-white text-right">
-          <p className="text-sm uppercase tracking-widest opacity-80">Energia Verde</p>
-          <h2 className="text-4xl font-black">88%</h2>
-        </div>
-      </div>
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("scoreVal");
 
-      {/* Title */}
-      <div className="relative z-20 text-center pt-12">
-        <h1 className="text-7xl md:text-8xl font-black text-white drop-shadow-[0_8px_12px_rgba(0,0,0,0.45)] tracking-tight">
-          AGRO RUNNER
-        </h1>
+    // Ajuste de tela
+    canvas.width = 400;
+    canvas.height = window.innerHeight;
 
-        <p className="mt-4 text-xl md:text-2xl text-white font-semibold drop-shadow-lg">
-          Agro forte, futuro sustentável 🌱
-        </p>
-      </div>
+    let score = 0;
+    let gameActive = true;
+    const lanes = [80, 200, 320]; // Três faixas (Subway Surfers style)
+    let currentLane = 1; // Começa no meio
 
-      {/* Game Area */}
-      <div className="relative z-10 flex justify-center items-center mt-10 px-4">
-        <div className="relative w-full max-w-6xl h-[650px] rounded-[40px] overflow-hidden border-[8px] border-white/40 shadow-[0_25px_80px_rgba(0,0,0,0.45)] bg-gradient-to-b from-sky-200 via-green-100 to-yellow-100">
-          {/* Mountains */}
-          <div className="absolute bottom-44 left-0 w-full flex justify-between opacity-50">
-            <div className="w-[400px] h-[220px] bg-green-700 rounded-full blur-sm"></div>
-            <div className="w-[450px] h-[240px] bg-green-800 rounded-full blur-sm"></div>
-            <div className="w-[350px] h-[180px] bg-green-700 rounded-full blur-sm"></div>
-          </div>
+    // Jogador (Trator)
+    const player = {
+        x: lanes[currentLane],
+        y: canvas.height - 120,
+        width: 50,
+        height: 80,
+        targetX: lanes[currentLane]
+    };
 
-          {/* Road */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-full bg-gradient-to-b from-yellow-700 to-yellow-900 clip-path-road">
-          </div>
+    const obstacles = [];
+    const items = [];
 
-          {/* Road lines */}
-          <div className="absolute inset-0 flex justify-center">
-            <div className="w-4 h-full bg-white/60"></div>
-          </div>
+    // Controles
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" && currentLane > 0) currentLane--;
+        if (e.key === "ArrowRight" && currentLane < 2) currentLane++;
+        player.targetX = lanes[currentLane];
+    });
 
-          {/* Collectibles */}
-          <div className="absolute top-44 left-[28%] text-6xl animate-bounce drop-shadow-xl">♻️</div>
-          <div className="absolute top-72 left-[60%] text-6xl animate-bounce delay-150 drop-shadow-xl">💧</div>
-          <div className="absolute top-28 left-[48%] text-6xl animate-bounce delay-300 drop-shadow-xl">☀️</div>
-          <div className="absolute top-[420px] left-[38%] text-6xl animate-bounce delay-500 drop-shadow-xl">🌱</div>
+    function spawnObject() {
+        const lane = lanes[Math.floor(Math.random() * 3)];
+        const isItem = Math.random() > 0.4;
 
-          {/* Obstacles */}
-          <div className="absolute bottom-36 left-[30%] text-7xl">🗑️</div>
-          <div className="absolute bottom-52 right-[28%] text-7xl">🔥</div>
-          <div className="absolute bottom-24 right-[42%] text-7xl">☠️</div>
+        if (isItem) {
+            items.push({ x: lane, y: -50, radius: 15, speed: 5 });
+        } else {
+            obstacles.push({ x: lane - 25, y: -50, w: 50, h: 50, speed: 6 });
+        }
+    }
 
-          {/* Player */}
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 transition-all duration-300 hover:scale-110">
-            <div className="relative">
-              <div className="absolute inset-0 blur-3xl bg-yellow-300 opacity-60 rounded-full"></div>
+    setInterval(() => { if(gameActive) spawnObject(); }, 1200);
 
-              <div className="relative text-[130px] animate-bounce drop-shadow-[0_10px_18px_rgba(0,0,0,0.5)]">
-                🚜
-              </div>
-            </div>
-          </div>
+    function update() {
+        if (!gameActive) return;
 
-          {/* Speed effect */}
-          <div className="absolute inset-0 pointer-events-none opacity-20">
-            <div className="absolute left-20 top-40 w-40 h-2 bg-white rotate-12"></div>
-            <div className="absolute right-24 top-64 w-52 h-2 bg-white -rotate-12"></div>
-            <div className="absolute left-40 bottom-48 w-44 h-2 bg-white rotate-6"></div>
-          </div>
+        // Suavizar movimento lateral
+        player.x += (player.targetX - player.x) * 0.2;
 
-          {/* Controls */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
-            <button className="backdrop-blur-xl bg-white/20 border border-white/30 text-white px-8 py-4 rounded-2xl text-xl font-bold shadow-xl hover:scale-105 transition-all duration-200">
-              ⬅️ ESQUERDA
-            </button>
+        // Atualizar Obstáculos (Poluição)
+        obstacles.forEach((obs, index) => {
+            obs.y += obs.speed;
+            // Colisão
+            if (obs.y + obs.h > player.y && obs.y < player.y + player.height &&
+                Math.abs((obs.x + 25) - player.x) < 30) {
+                gameActive = false;
+                alert("Game Over! Você atingiu poluição. Pontuação: " + score);
+                location.reload();
+            }
+            if (obs.y > canvas.height) obstacles.splice(index, 1);
+        });
 
-            <button className="backdrop-blur-xl bg-white/20 border border-white/30 text-white px-8 py-4 rounded-2xl text-xl font-bold shadow-xl hover:scale-105 transition-all duration-200">
-              ⬆️ PULAR
-            </button>
+        // Atualizar Itens (Sementes)
+        items.forEach((item, index) => {
+            item.y += item.speed;
+            // Coleta
+            if (item.y + 15 > player.y && item.y < player.y + player.height &&
+                Math.abs(item.x - player.x) < 30) {
+                items.splice(index, 1);
+                score += 10;
+                scoreElement.innerText = score;
+            }
+            if (item.y > canvas.height) items.splice(index, 1);
+        });
+    }
 
-            <button className="backdrop-blur-xl bg-white/20 border border-white/30 text-white px-8 py-4 rounded-2xl text-xl font-bold shadow-xl hover:scale-105 transition-all duration-200">
-              DIREITA ➡️
-            </button>
-          </div>
-        </div>
-      </div>
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      {/* Feature cards */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-8">
-        <div className="bg-white/20 backdrop-blur-2xl border border-white/30 rounded-[32px] p-8 shadow-2xl hover:-translate-y-2 transition-all duration-300">
-          <div className="text-7xl mb-4">🚜</div>
-          <h2 className="text-3xl font-black text-white mb-4">Corrida Agro</h2>
-}
+        // Estradas
+        ctx.fillStyle = "#694322"; // Cor de terra
+        ctx.fillRect(40, 0, 320, canvas.height);
+        
+        // Faixas
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.setLineDash([20, 20]);
+        ctx.beginPath();
+        ctx.moveTo(140, 0); ctx.lineTo(140, canvas.height);
+        ctx.moveTo(260, 0); ctx.lineTo(260, canvas.height);
+        ctx.stroke();
+
+        // Desenhar Jogador (Trator)
+        ctx.fillStyle = "green";
+        ctx.fillRect(player.x - 25, player.y, player.width, player.height);
+        ctx.fillStyle = "black"; // Rodas
+        ctx.fillRect(player.x - 30, player.y + 10, 10, 20);
+        ctx.fillRect(player.x + 20, player.y + 10, 10, 20);
+
+        // Desenhar Obstáculos (Barril de óleo/poluição)
+        ctx.fillStyle = "#333";
+        obstacles.forEach(obs => {
+            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            ctx.fillStyle = "red";
+            ctx.fillRect(obs.x, obs.y + 20, obs.w, 10);
+            ctx.fillStyle = "#333";
+        });
+
+        // Desenhar Sementes
+        ctx.fillStyle = "yellow";
+        items.forEach(item => {
+            ctx.beginPath();
+            ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        update();
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+</script>
+</body>
+</html>
