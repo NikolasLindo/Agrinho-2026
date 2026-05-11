@@ -2,12 +2,12 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>AgroDash: Da Cidade ao Campo</title>
+    <title>AgroDash 3D - Velocidade Real</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; }
-        .score-box { background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 20px; display: inline-block; }
-        .score { font-size: 32px; color: #ADFF2F; font-weight: bold; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; z-index: 10; }
+        .score-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 15px; border: 2px solid #ADFF2F; }
+        .score { font-size: 35px; color: #ADFF2F; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -15,7 +15,7 @@
     <div id="ui">
         <div class="score-box">
             <div class="score">Sementes: <span id="scoreVal">0</span></div>
-            <p>Use as <b>SETAS</b> para desviar dos obstáculos!</p>
+            <p>Sinta a velocidade do Agro!</p>
         </div>
     </div>
 
@@ -26,68 +26,70 @@
 <script type="module">
     import * as THREE from 'three';
 
-    // 1. CONFIGURAÇÃO DA CENA
+    // --- CONFIGURAÇÃO INICIAL ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); 
-    scene.fog = new THREE.Fog(0x87CEEB, 20, 100); // Neblina para suavizar o horizonte
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, 10, 60);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 2. ILUMINAÇÃO
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-    sun.position.set(10, 20, 10);
-    scene.add(sun);
-    scene.add(new THREE.AmbientLight(0x606060));
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+    sunLight.position.set(5, 15, 5);
+    scene.add(sunLight);
 
-    // 3. ESTRADA E RUA
-    const roadGeo = new THREE.PlaneGeometry(12, 1000);
-    const roadMat = new THREE.MeshPhongMaterial({ color: 0x333333 }); // Asfalto
+    // --- VARIÁVEIS DE MOVIMENTO ---
+    const speed = 0.8; // Velocidade do mundo
+    const lanes = [-4, 0, 4];
+    let currentLane = 1;
+    let score = 0;
+
+    // --- CRIAÇÃO DO CHÃO INFINITO ---
+    const roadGeo = new THREE.PlaneGeometry(12, 200);
+    const roadMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // Linhas da estrada
-    for (let i = 0; i < 50; i++) {
-        const lineGeo = new THREE.PlaneGeometry(0.2, 3);
-        const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const line = new THREE.Mesh(lineGeo, lineMat);
-        line.rotation.x = -Math.PI / 2;
-        line.position.set(0, 0.01, -i * 10);
-        scene.add(line);
-    }
-
-    // 4. PAISAGEM (CIDADES E PRÉDIOS)
-    function createBuilding(x, z) {
-        const h = Math.random() * 10 + 5;
+    // --- PRÉDIOS (CENÁRIO EM LOOP) ---
+    const buildings = [];
+    function createBuilding(z) {
+        const h = Math.random() * 15 + 5;
         const geo = new THREE.BoxGeometry(4, h, 4);
-        const mat = new THREE.MeshPhongMaterial({ color: 0x808080 });
-        const b = new THREE.Mesh(geo, mat);
-        b.position.set(x, h/2, z);
-        scene.add(b);
+        const mat = new THREE.MeshPhongMaterial({ color: 0x707070 });
+        
+        const bLeft = new THREE.Mesh(geo, mat);
+        bLeft.position.set(-10, h/2, z);
+        scene.add(bLeft);
+        buildings.push(bLeft);
+
+        const bRight = new THREE.Mesh(geo, mat);
+        bRight.position.set(10, h/2, z);
+        scene.add(bRight);
+        buildings.push(bRight);
     }
 
-    for (let i = 0; i < 40; i++) {
-        createBuilding(-10, -i * 15); // Lado esquerdo
-        createBuilding(10, -i * 15);  // Lado direito
+    // Criar prédios iniciais ao longo da estrada
+    for (let i = 0; i < 20; i++) {
+        createBuilding(-i * 10);
     }
 
-    // 5. JOGADOR (PERSONAGEM)
-    const player = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 1), new THREE.MeshPhongMaterial({color: 0x228B22}));
-    player.add(body);
-    player.position.y = 0.75;
+    // --- JOGADOR ---
+    const player = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 1.2, 1.2),
+        new THREE.MeshPhongMaterial({ color: 0x228B22 }) // Verde Agro
+    );
+    player.position.y = 0.6;
     scene.add(player);
 
-    camera.position.set(0, 4, 6);
-    camera.lookAt(0, 0, -5);
+    camera.position.set(0, 5, 8);
+    camera.lookAt(0, 1, -5);
 
-    // 6. LÓGICA DO JOGO
-    let score = 0;
-    const lanes = [-4, 0, 4];
-    let currentLane = 1;
+    // --- OBSTÁCULOS E ITENS ---
     const obstacles = [];
     const items = [];
 
@@ -98,45 +100,50 @@
 
     function spawn() {
         const lane = lanes[Math.floor(Math.random() * 3)];
-        if (Math.random() > 0.4) {
-            // Obstáculo (Barril de Poluição)
-            const obs = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.5), new THREE.MeshPhongMaterial({color: 0x222222}));
-            obs.position.set(lane, 0.75, -60);
+        if (Math.random() > 0.5) {
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshPhongMaterial({color: 0xcc0000}));
+            obs.position.set(lane, 0.75, -80);
             scene.add(obs);
             obstacles.push(obs);
         } else {
-            // Item (Semente de Ouro)
-            const item = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), new THREE.MeshPhongMaterial({color: 0xFFD700}));
-            item.position.set(lane, 1, -60);
+            const item = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshPhongMaterial({color: 0xffff00}));
+            item.position.set(lane, 0.8, -80);
             scene.add(item);
             items.push(item);
         }
     }
+    setInterval(spawn, 1000);
 
-    setInterval(spawn, 800);
-
+    // --- LOOP DE ANIMAÇÃO ---
     function animate() {
         requestAnimationFrame(animate);
 
-        // Movimento suave lateral
+        // 1. Move o Jogador lateralmente
         player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
 
-        // Movimentar obstáculos
+        // 2. MOVE O CENÁRIO (PRÉDIOS) PARA TRÁS
+        buildings.forEach(b => {
+            b.position.z += speed;
+            // Se o prédio passou do jogador, joga ele lá pra frente de novo (Loop)
+            if (b.position.z > 15) {
+                b.position.z = -150; 
+                b.scale.y = Math.random() * 2 + 0.5; // Muda a altura pra variar
+            }
+        });
+
+        // 3. Move Obstáculos e Itens (Eles vêm mais rápido que o cenário)
         obstacles.forEach((obs, i) => {
-            obs.position.z += 0.6;
-            if (obs.position.z > 5) { scene.remove(obs); obstacles.splice(i, 1); }
-            // Colisão
-            if (obs.position.z > -0.5 && obs.position.z < 0.5 && Math.abs(obs.position.x - player.position.x) < 1) {
-                alert("Game Over! A poluição urbana te parou. Sementes coletadas: " + score);
+            obs.position.z += speed; 
+            if (obs.position.z > 10) { scene.remove(obs); obstacles.splice(i, 1); }
+            if (obs.position.z > -0.7 && obs.position.z < 0.7 && Math.abs(obs.position.x - player.position.x) < 1.2) {
+                alert("Opa! Cuidado com os resíduos urbanos. Pontos: " + score);
                 location.reload();
             }
         });
 
-        // Movimentar itens
         items.forEach((item, i) => {
-            item.position.z += 0.6;
-            item.rotation.y += 0.05;
-            if (item.position.z > -0.5 && item.position.z < 0.5 && Math.abs(item.position.x - player.position.x) < 1) {
+            item.position.z += speed;
+            if (item.position.z > -0.7 && item.position.z < 0.7 && Math.abs(item.position.x - player.position.x) < 1.2) {
                 scene.remove(item);
                 items.splice(i, 1);
                 score += 10;
