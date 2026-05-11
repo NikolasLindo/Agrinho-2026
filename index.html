@@ -2,148 +2,126 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>AgroDash Sustentável - Agrinho 2026</title>
+    <title>AgroDash 3D - Agrinho 2026</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
-        canvas { display: block; background: #7cfc00; margin: 0 auto; border-left: 5px solid #555; border-right: 5px solid #555; }
-        #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; }
-        h1 { color: white; text-shadow: 2px 2px #000; margin: 0; }
-        .score { font-size: 24px; color: yellow; font-weight: bold; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; }
+        .score { font-size: 30px; color: #7cfc00; font-weight: bold; text-shadow: 2px 2px #000; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1>AGRO DASH 2026</h1>
         <div class="score">Sementes: <span id="scoreVal">0</span></div>
-        <p>Use as setas <b>ESQUERDA / DIREITA</b> para mover</p>
+        <p>Use SETAS para mover o Trator</p>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
 
-<script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const scoreElement = document.getElementById("scoreVal");
+<script type="module">
+    import * as THREE from 'three';
 
-    // Ajuste de tela
-    canvas.width = 400;
-    canvas.height = window.innerHeight;
+    // Configuração Básica
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Céu
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
+    // Luzes
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    // Chão (Estrada)
+    const groundGeo = new THREE.PlaneGeometry(10, 1000);
+    const groundMat = new THREE.MeshPhongMaterial({ color: 0x694322 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // Jogador (Trator Simplificado)
+    const playerGroup = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 1.2), new THREE.MeshPhongMaterial({color: 0x00ff00}));
+    playerGroup.add(body);
+    scene.add(playerGroup);
+    playerGroup.position.y = 0.4;
+
+    camera.position.set(0, 3, 5);
+    camera.lookAt(playerGroup.position);
+
+    // Variáveis de Jogo
     let score = 0;
-    let gameActive = true;
-    const lanes = [80, 200, 320]; // Três faixas (Subway Surfers style)
-    let currentLane = 1; // Começa no meio
-
-    // Jogador (Trator)
-    const player = {
-        x: lanes[currentLane],
-        y: canvas.height - 120,
-        width: 50,
-        height: 80,
-        targetX: lanes[currentLane]
-    };
-
+    const lanes = [-2, 0, 2];
+    let currentLane = 1;
     const obstacles = [];
     const items = [];
 
-    // Controles
-    document.addEventListener("keydown", (e) => {
+    // Movimentação
+    window.addEventListener('keydown', (e) => {
         if (e.key === "ArrowLeft" && currentLane > 0) currentLane--;
         if (e.key === "ArrowRight" && currentLane < 2) currentLane++;
-        player.targetX = lanes[currentLane];
     });
 
-    function spawnObject() {
+    function spawn() {
         const lane = lanes[Math.floor(Math.random() * 3)];
-        const isItem = Math.random() > 0.4;
-
-        if (isItem) {
-            items.push({ x: lane, y: -50, radius: 15, speed: 5 });
+        if (Math.random() > 0.5) {
+            // Obstáculo (Cubo Vermelho - Poluição)
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 0xff0000}));
+            obs.position.set(lane, 0.5, -50);
+            scene.add(obs);
+            obstacles.push(obs);
         } else {
-            obstacles.push({ x: lane - 25, y: -50, w: 50, h: 50, speed: 6 });
+            // Item (Esfera Dourada - Semente)
+            const item = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshPhongMaterial({color: 0xffff00}));
+            item.position.set(lane, 0.5, -50);
+            scene.add(item);
+            items.push(item);
         }
     }
 
-    setInterval(() => { if(gameActive) spawnObject(); }, 1200);
+    setInterval(spawn, 1000);
 
-    function update() {
-        if (!gameActive) return;
+    function animate() {
+        requestAnimationFrame(animate);
 
-        // Suavizar movimento lateral
-        player.x += (player.targetX - player.x) * 0.2;
+        // Suavizar movimento do jogador
+        playerGroup.position.x = THREE.MathUtils.lerp(playerGroup.position.x, lanes[currentLane], 0.1);
 
-        // Atualizar Obstáculos (Poluição)
+        // Mover e checar obstáculos
         obstacles.forEach((obs, index) => {
-            obs.y += obs.speed;
-            // Colisão
-            if (obs.y + obs.h > player.y && obs.y < player.y + player.height &&
-                Math.abs((obs.x + 25) - player.x) < 30) {
-                gameActive = false;
-                alert("Game Over! Você atingiu poluição. Pontuação: " + score);
+            obs.position.z += 0.5;
+            if (obs.position.z > 5) {
+                scene.remove(obs);
+                obstacles.splice(index, 1);
+            }
+            // Colisão simples
+            if (obs.position.z > -0.5 && obs.position.z < 0.5 && Math.abs(obs.position.x - playerGroup.position.x) < 0.5) {
+                alert("Fim de jogo! Pontuação: " + score);
                 location.reload();
             }
-            if (obs.y > canvas.height) obstacles.splice(index, 1);
         });
 
-        // Atualizar Itens (Sementes)
+        // Mover e checar itens
         items.forEach((item, index) => {
-            item.y += item.speed;
-            // Coleta
-            if (item.y + 15 > player.y && item.y < player.y + player.height &&
-                Math.abs(item.x - player.x) < 30) {
+            item.position.z += 0.5;
+            item.rotation.y += 0.1;
+            if (item.position.z > -0.5 && item.position.z < 0.5 && Math.abs(item.position.x - playerGroup.position.x) < 0.5) {
+                scene.remove(item);
                 items.splice(index, 1);
                 score += 10;
-                scoreElement.innerText = score;
+                document.getElementById('scoreVal').innerText = score;
             }
-            if (item.y > canvas.height) items.splice(index, 1);
         });
+
+        renderer.render(scene, camera);
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Estradas
-        ctx.fillStyle = "#694322"; // Cor de terra
-        ctx.fillRect(40, 0, 320, canvas.height);
-        
-        // Faixas
-        ctx.strokeStyle = "rgba(255,255,255,0.3)";
-        ctx.setLineDash([20, 20]);
-        ctx.beginPath();
-        ctx.moveTo(140, 0); ctx.lineTo(140, canvas.height);
-        ctx.moveTo(260, 0); ctx.lineTo(260, canvas.height);
-        ctx.stroke();
-
-        // Desenhar Jogador (Trator)
-        ctx.fillStyle = "green";
-        ctx.fillRect(player.x - 25, player.y, player.width, player.height);
-        ctx.fillStyle = "black"; // Rodas
-        ctx.fillRect(player.x - 30, player.y + 10, 10, 20);
-        ctx.fillRect(player.x + 20, player.y + 10, 10, 20);
-
-        // Desenhar Obstáculos (Barril de óleo/poluição)
-        ctx.fillStyle = "#333";
-        obstacles.forEach(obs => {
-            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-            ctx.fillStyle = "red";
-            ctx.fillRect(obs.x, obs.y + 20, obs.w, 10);
-            ctx.fillStyle = "#333";
-        });
-
-        // Desenhar Sementes
-        ctx.fillStyle = "yellow";
-        items.forEach(item => {
-            ctx.beginPath();
-            ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
-            ctx.fill();
-        });
-
-        update();
-        requestAnimationFrame(draw);
-    }
-
-    draw();
+    animate();
 </script>
 </body>
 </html>
