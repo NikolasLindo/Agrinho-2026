@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgroDash Rural - Agrinho 2026</title>
-
 <style>
 body{
     margin:0;
@@ -12,7 +11,6 @@ body{
     background:#87CEEB;
     font-family:'Segoe UI',sans-serif;
 }
-
 #ui{
     position:absolute;
     top:20px;
@@ -22,7 +20,6 @@ body{
     pointer-events:none;
     z-index:5;
 }
-
 .score-box{
     background:rgba(58,95,11,.8);
     padding:10px 25px;
@@ -30,13 +27,11 @@ body{
     border:2px solid #FFD700;
     display:inline-block;
 }
-
 .score{
     font-size:30px;
     color:#FFD700;
     font-weight:bold;
 }
-
 #gameOverPanel{
     position:absolute;
     top:50%;
@@ -52,19 +47,16 @@ body{
     box-shadow:0 0 50px rgba(0,0,0,.5);
     min-width:300px;
 }
-
 #gameOverPanel h2{
     color:#cc0000;
     font-size:40px;
     margin:0;
 }
-
 #gameOverPanel p{
     color:#333;
     font-size:20px;
     margin:20px 0;
 }
-
 .btn-restart{
     background:#3A5F0B;
     color:white;
@@ -76,16 +68,13 @@ body{
     cursor:pointer;
     transition:.3s;
 }
-
 .btn-restart:hover{
     background:#558B0F;
     transform:scale(1.1);
 }
 </style>
 </head>
-
 <body>
-
 <div id="ui">
     <div class="score-box">
         <div class="score">
@@ -93,7 +82,6 @@ body{
         </div>
     </div>
 </div>
-
 <div id="gameOverPanel">
     <h2>FIM DE JOGO!</h2>
     <p>A poluição prejudicou a colheita.</p>
@@ -101,7 +89,6 @@ body{
         <b id="finalScore" style="color:#3A5F0B;">0</b>
         sementes.
     </p>
-
     <button class="btn-restart" onclick="restartGame()">
         RECOMEÇAR
     </button>
@@ -116,624 +103,276 @@ body{
 </script>
 
 <script type="module">
-
 import * as THREE from 'three';
 
-// ==========================
-// CONFIGURAÇÃO
-// ==========================
-
+// ---------- CENA ----------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.Fog(0x87CEEB,20,100);
 
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth/window.innerHeight,
-    0.1,
-    1000
-);
+// ---------- CAMERA ----------
+const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.set(0,6,10);
+camera.lookAt(0,0,-5);
 
-const renderer = new THREE.WebGLRenderer({
-    antialias:true
-});
-
-renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-);
-
+// ---------- RENDERER ----------
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// ==========================
-// LUZES
-// ==========================
-
-const sun = new THREE.DirectionalLight(
-    0xffffff,
-    1.5
-);
-
+// ---------- LUZES ----------
+const sun = new THREE.DirectionalLight(0xffffff,1.5);
 sun.position.set(10,20,10);
-
 scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-scene.add(
-    new THREE.AmbientLight(
-        0xffffff,
-        0.4
-    )
-);
-
-// ==========================
-// ESTADO DO JOGO
-// ==========================
-
+// ---------- ESTADO ----------
 let gameRunning = true;
 let score = 0;
-
 const speed = 0.8;
-
 const lanes = [-4,0,4];
 let currentLane = 1;
 
-// ==========================
-// CHÃO
-// ==========================
-
-const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(12,1000),
-    new THREE.MeshPhongMaterial({
-        color:0x8B4513
-    })
-);
-
+// ---------- CHÃO ----------
+const road = new THREE.Mesh(new THREE.PlaneGeometry(12,1000),new THREE.MeshPhongMaterial({color:0x8B4513}));
 road.rotation.x = -Math.PI/2;
 scene.add(road);
-
-const grass = new THREE.Mesh(
-    new THREE.PlaneGeometry(100,1000),
-    new THREE.MeshPhongMaterial({
-        color:0x228B22
-    })
-);
-
+const grass = new THREE.Mesh(new THREE.PlaneGeometry(100,1000),new THREE.MeshPhongMaterial({color:0x228B22}));
 grass.rotation.x = -Math.PI/2;
-grass.position.y = -0.1;
-
+grass.position.y=-0.1;
 scene.add(grass);
 
-// ==========================
-// ÁRVORES
-// ==========================
-
+// ---------- ÁRVORES ----------
 const sceneryItems = [];
-
 function createScenery(z){
-
-    const trunkGeo =
-        new THREE.CylinderGeometry(
-            0.5,0.5,2
-        );
-
-    const leafGeo =
-        new THREE.SphereGeometry(2);
-
-    const tree = new THREE.Group();
-
     const trunk = new THREE.Mesh(
-        trunkGeo,
-        new THREE.MeshPhongMaterial({
-            color:0x5D3A1A
-        })
+        new THREE.CylinderGeometry(0.5,0.5,2),
+        new THREE.MeshPhongMaterial({color:0x5D3A1A})
     );
-
-    tree.add(trunk);
-
     const leaves = new THREE.Mesh(
-        leafGeo,
-        new THREE.MeshPhongMaterial({
-            color:0x006400
-        })
+        new THREE.SphereGeometry(2),
+        new THREE.MeshPhongMaterial({color:0x006400})
     );
-
-    leaves.position.y = 2;
-
+    leaves.position.y=2;
+    const tree = new THREE.Group();
+    tree.add(trunk);
     tree.add(leaves);
-
-    const xPos =
-        Math.random()>0.5
-        ? 12 + Math.random()*5
-        : -12 - Math.random()*5;
-
-    tree.position.set(
-        xPos,
-        1,
-        z
-    );
-
+    const xPos = Math.random()>0.5?12+Math.random()*5:-12-Math.random()*5;
+    tree.position.set(xPos,1,z);
     scene.add(tree);
-
     sceneryItems.push(tree);
 }
+for(let i=0;i<25;i++) createScenery(-i*15);
 
-for(let i=0;i<25;i++){
-    createScenery(-i*15);
-}
-
-// ==========================
-// TRATOR
-// ==========================
-
+// ---------- TRATOR DETALHADO ----------
 const player = new THREE.Group();
 
+// Corpo
 const body = new THREE.Mesh(
     new THREE.BoxGeometry(2,1,3),
-    new THREE.MeshPhongMaterial({
-        color:0x2E7D32
-    })
+    new THREE.MeshPhongMaterial({color:0x2E7D32})
 );
-
-body.position.y = 0.6;
+body.position.y=0.6;
 player.add(body);
 
+// Capô
 const hood = new THREE.Mesh(
-    new THREE.BoxGeometry(
-        1.8,
-        0.8,
-        1.5
-    ),
-    new THREE.MeshPhongMaterial({
-        color:0x388E3C
-    })
+    new THREE.BoxGeometry(1.8,0.8,1.5),
+    new THREE.MeshPhongMaterial({color:0x388E3C})
 );
-
-hood.position.set(
-    0,
-    0.9,
-    -0.8
-);
-
+hood.position.set(0,0.9,-0.8);
 player.add(hood);
 
+// Cabine com janelas
 const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(
-        1.3,
-        1.3,
-        1.2
-    ),
-    new THREE.MeshPhongMaterial({
-        color:0xffffff,
-        transparent:true,
-        opacity:0.6
-    })
+    new THREE.BoxGeometry(1.3,1.3,1.2),
+    new THREE.MeshPhongMaterial({color:0xffffff,transparent:true,opacity:0.6})
 );
-
-cabin.position.set(
-    0,
-    1.5,
-    0.7
-);
-
+cabin.position.set(0,1.5,0.7);
 player.add(cabin);
 
+// Escapamento
 const exhaust = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-        0.08,
-        0.08,
-        1,
-        8
-    ),
-    new THREE.MeshPhongMaterial({
-        color:0x333333
-    })
+    new THREE.CylinderGeometry(0.08,0.08,1,8),
+    new THREE.MeshPhongMaterial({color:0x333333})
 );
-
-exhaust.position.set(
-    -0.6,
-    1.6,
-    -1
-);
-
+exhaust.position.set(-0.6,1.6,-1);
 player.add(exhaust);
-    // Faróis
-const headlightMat = new THREE.MeshPhongMaterial({
-    color:0xFFD700,
-    emissive:0xFFD700,
-    emissiveIntensity:0.5
-});
 
-const light1 = new THREE.Mesh(
-    new THREE.SphereGeometry(0.15,16,16),
-    headlightMat
-);
-
-light1.position.set(
-    -0.5,
-    0.8,
-    -1.6
-);
-
+// Faróis
+const headlightMat = new THREE.MeshPhongMaterial({color:0xFFD700,emissive:0xFFD700,emissiveIntensity:0.5});
+const light1 = new THREE.Mesh(new THREE.SphereGeometry(0.15,16,16),headlightMat);
+light1.position.set(-0.5,0.8,-1.6);
 player.add(light1);
-
 const light2 = light1.clone();
-light2.position.x = 0.5;
+light2.position.x=0.5;
 player.add(light2);
 
-// Rodas traseiras
-const wheelMaterial = new THREE.MeshPhongMaterial({
-    color:0x111111
-});
-
-const backWheelLeft = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-        0.8,
-        0.8,
-        0.6,
-        20
-    ),
-    wheelMaterial
-);
-
-backWheelLeft.rotation.z = Math.PI/2;
-backWheelLeft.position.set(
-    -1.2,
-    0.5,
-    0.8
-);
-
+// Rodas traseiras grandes
+const wheelMaterial = new THREE.MeshPhongMaterial({color:0x111111});
+const backWheelLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.6,20),wheelMaterial);
+backWheelLeft.rotation.z=Math.PI/2;
+backWheelLeft.position.set(-1.2,0.5,0.8);
 player.add(backWheelLeft);
-
-const backWheelRight =
-    backWheelLeft.clone();
-
-backWheelRight.position.x = 1.2;
-
+const backWheelRight=backWheelLeft.clone();
+backWheelRight.position.x=1.2;
 player.add(backWheelRight);
 
-// Rodas dianteiras
-const frontWheelLeft = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-        0.5,
-        0.5,
-        0.4,
-        20
-    ),
-    wheelMaterial
-);
-
-frontWheelLeft.rotation.z = Math.PI/2;
-
-frontWheelLeft.position.set(
-    -1,
-    0.4,
-    -1
-);
-
+// Rodas dianteiras pequenas
+const frontWheelLeft=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.4,20),wheelMaterial);
+frontWheelLeft.rotation.z=Math.PI/2;
+frontWheelLeft.position.set(-1,0.4,-1);
 player.add(frontWheelLeft);
-
-const frontWheelRight =
-    frontWheelLeft.clone();
-
-frontWheelRight.position.x = 1;
-
+const frontWheelRight=frontWheelLeft.clone();
+frontWheelRight.position.x=1;
 player.add(frontWheelRight);
 
 scene.add(player);
+player.userData.wheels=[backWheelLeft,backWheelRight,frontWheelLeft,frontWheelRight];
 
-player.userData.wheels = [
-    backWheelLeft,
-    backWheelRight,
-    frontWheelLeft,
-    frontWheelRight
-];
+// ---------- FUMAÇA ----------
+const smokeParticles = [];
+const smokeGeometry = new THREE.BufferGeometry();
+const smokeCount = 100;
+const smokePositions = new Float32Array(smokeCount*3);
 
-// ==========================
-// CÂMERA
-// ==========================
+for(let i=0;i<smokeCount;i++){
+    smokePositions[i*3+0]=-0.6 + Math.random()*0.1; // x perto do escapamento
+    smokePositions[i*3+1]=1.6 + Math.random()*0.1; // y escapamento
+    smokePositions[i*3+2]=-1 + Math.random()*0.1; // z escapamento
+}
+smokeGeometry.setAttribute('position',new THREE.BufferAttribute(smokePositions,3));
+const smokeMaterial = new THREE.PointsMaterial({
+    color:0x555555,
+    size:0.3,
+    transparent:true
+    , opacity: 0.6
+});
+const smoke = new THREE.Points(smokeGeometry, smokeMaterial);
+scene.add(smoke);
+player.userData.smoke = smoke;
 
-camera.position.set(
-    0,
-    6,
-    10
-);
-
-camera.lookAt(
-    0,
-    0,
-    -5
-);
-
-// ==========================
-// OBSTÁCULOS
-// ==========================
-
+// ---------- OBSTÁCULOS E ITENS ----------
 const obstacles = [];
 const items = [];
 
-// ==========================
-// CONTROLES
-// ==========================
+// ---------- CONTROLES ----------
+window.addEventListener('keydown', (e) => {
+    if (!gameRunning) return;
+    if (e.key === "ArrowLeft" && currentLane > 0) currentLane--;
+    if (e.key === "ArrowRight" && currentLane < 2) currentLane++;
+});
 
-window.addEventListener(
-    'keydown',
-    (e)=>{
-
-        if(!gameRunning) return;
-
-        if(
-            e.key==="ArrowLeft" &&
-            currentLane>0
-        ){
-            currentLane--;
-        }
-
-        if(
-            e.key==="ArrowRight" &&
-            currentLane<2
-        ){
-            currentLane++;
-        }
-    }
-);
-
-// ==========================
-// SPAWN
-// ==========================
-
-function spawn(){
-
-    if(!gameRunning) return;
-
-    const lane =
-        lanes[
-            Math.floor(
-                Math.random()*3
-            )
-        ];
-
-    if(Math.random()>0.5){
-
-        const obs = new THREE.Mesh(
-            new THREE.CylinderGeometry(
-                0.8,
-                0.8,
-                1.8
-            ),
-            new THREE.MeshPhongMaterial({
-                color:0x333333
-            })
-        );
-
-        obs.position.set(
-            lane,
-            0.9,
-            -100
-        );
-
+// ---------- SPAWN ----------
+function spawn() {
+    if (!gameRunning) return;
+    const lane = lanes[Math.floor(Math.random() * 3)];
+    if (Math.random() > 0.5) {
+        const obs = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8), new THREE.MeshPhongMaterial({color: 0x333333}));
+        obs.position.set(lane, 0.9, -100);
         scene.add(obs);
         obstacles.push(obs);
-
-    }else{
-
-        const item = new THREE.Mesh(
-            new THREE.SphereGeometry(
-                0.6,
-                16,
-                16
-            ),
-            new THREE.MeshPhongMaterial({
-                color:0xFFD700
-            })
-        );
-
-        item.position.set(
-            lane,
-            1,
-            -100
-        );
-
+    } else {
+        const item = new THREE.Mesh(new THREE.SphereGeometry(0.6,16,16), new THREE.MeshPhongMaterial({color:0xFFD700}));
+        item.position.set(lane,1,-100);
         scene.add(item);
         items.push(item);
     }
 }
+setInterval(spawn, 900);
 
-setInterval(
-    spawn,
-    900
-);
-
-// ==========================
-// GAME OVER
-// ==========================
-
-function endGame(){
-
+// ---------- GAME OVER ----------
+function endGame() {
     gameRunning = false;
-
-    document
-        .getElementById(
-            'gameOverPanel'
-        )
-        .style.display = 'block';
-
-    document
-        .getElementById(
-            'finalScore'
-        )
-        .innerText = score;
+    document.getElementById('gameOverPanel').style.display = 'block';
+    document.getElementById('finalScore').innerText = score;
 }
 
-// ==========================
-// REINICIAR
-// ==========================
+// ---------- REINICIAR ----------
+window.restartGame = () => location.reload();
 
-window.restartGame = ()=>{
-    location.reload();
-};
+// ---------- RESPONSIVO ----------
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-// ==========================
-// RESPONSIVO
-// ==========================
+// ---------- ANIMAÇÃO ----------
+function animate() {
+    requestAnimationFrame(animate);
 
-window.addEventListener(
-    'resize',
-    ()=>{
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-    }
-);
-
-// ==========================
-// LOOP
-// ==========================
-
-function animate(){
-
-    requestAnimationFrame(
-        animate
-    );
-
-    if(!gameRunning){
-
-        renderer.render(
-            scene,
-            camera
-        );
-
+    if (!gameRunning) {
+        renderer.render(scene, camera);
         return;
     }
 
-    player.position.x =
-        THREE.MathUtils.lerp(
-            player.position.x,
-            lanes[currentLane],
-            0.15
-        );
+    // Movimento lateral
+    player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
 
-    player.userData.wheels.forEach(
-        wheel=>{
-            wheel.rotation.x += 0.15;
+    // Rodas girando
+    player.userData.wheels.forEach(w => w.rotation.x += 0.15);
+
+    // Cenário
+    sceneryItems.forEach(item => {
+        item.position.z += speed;
+        if(item.position.z > 20){
+            item.position.z = -200;
+            item.position.x = Math.random() > 0.5 ? 12 + Math.random()*5 : -12 - Math.random()*5;
         }
-    );
+    });
 
-    sceneryItems.forEach(
-        item=>{
-
-            item.position.z += speed;
-
-            if(
-                item.position.z > 20
-            ){
-
-                item.position.z =
-                    -200;
-
-                item.position.x =
-                    Math.random()>0.5
-                    ? 12 + Math.random()*5
-                    : -12 - Math.random()*5;
-            }
-        }
-    );
-
-    for(
-        let i = obstacles.length-1;
-        i >= 0;
-        i--
-    ){
-
-        const obs =
-            obstacles[i];
-
+    // Obstáculos
+    for(let i = obstacles.length-1; i >= 0; i--){
+        const obs = obstacles[i];
         obs.position.z += speed;
         obs.rotation.y += 0.03;
-
-        if(
-            obs.position.z > 15
-        ){
-
+        if(obs.position.z > 15){
             scene.remove(obs);
             obstacles.splice(i,1);
-
             continue;
         }
-
-        if(
-            obs.position.z > -1.5 &&
-            obs.position.z < 1.5 &&
-            Math.abs(
-                obs.position.x -
-                player.position.x
-            ) < 1.6
-        ){
+        if(obs.position.z > -1.5 && obs.position.z < 1.5 && Math.abs(obs.position.x - player.position.x) < 1.6){
             endGame();
         }
     }
 
-    for(
-        let i = items.length-1;
-        i >= 0;
-        i--
-    ){
-
-        const item =
-            items[i];
-
+    // Itens
+    for(let i = items.length-1; i >= 0; i--){
+        const item = items[i];
         item.position.z += speed;
         item.rotation.y += 0.08;
         item.rotation.x += 0.04;
-
-        if(
-            item.position.z > 15
-        ){
-
+        if(item.position.z > 15){
             scene.remove(item);
             items.splice(i,1);
-
             continue;
         }
-
-        if(
-            item.position.z > -1.5 &&
-            item.position.z < 1.5 &&
-            Math.abs(
-                item.position.x -
-                player.position.x
-            ) < 1.6
-        ){
-
+        if(item.position.z > -1.5 && item.position.z < 1.5 && Math.abs(item.position.x - player.position.x) < 1.6){
             scene.remove(item);
             items.splice(i,1);
-
             score += 10;
-
-            document
-                .getElementById(
-                    'scoreVal'
-                )
-                .innerText = score;
+            document.getElementById('scoreVal').innerText = score;
         }
     }
 
-    renderer.render(
-        scene,
-        camera
-    );
+    // Fumaça
+    const positions = smoke.geometry.attributes.position.array;
+    for(let i=0;i<smokeCount;i++){
+        positions[i*3+1] += 0.02 + Math.random()*0.01; // sobe
+        positions[i*3+0] += (Math.random()-0.5)*0.01; // lateral
+        positions[i*3+2] += (Math.random()-0.5)*0.01; // lateral
+        if(positions[i*3+1] > 4){ // reset
+            positions[i*3+1] = 1.6 + Math.random()*0.2;
+            positions[i*3+0] = -0.6 + Math.random()*0.1;
+            positions[i*3+2] = -1 + Math.random()*0.1;
+        }
+    }
+    smoke.geometry.attributes.position.needsUpdate = true;
+
+    renderer.render(scene, camera);
 }
-
 animate();
-
 </script>
-
 </body>
 </html>
