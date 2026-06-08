@@ -230,27 +230,38 @@ player.add(frontWheelRight);
 scene.add(player);
 player.userData.wheels=[backWheelLeft,backWheelRight,frontWheelLeft,frontWheelRight];
 
-// ---------- FUMAÇA ----------
+// ---------- FUMAÇA (agora como filho do player) ----------
 const smokeParticles = [];
-const smokeGeometry = new THREE.BufferGeometry();
 const smokeCount = 100;
 const smokePositions = new Float32Array(smokeCount*3);
+const smokeVelocities = new Float32Array(smokeCount*3); // para movimento mais natural
 
 for(let i=0;i<smokeCount;i++){
-    smokePositions[i*3+0]=-0.6 + Math.random()*0.1; // x perto do escapamento
-    smokePositions[i*3+1]=1.6 + Math.random()*0.1; // y escapamento
-    smokePositions[i*3+2]=-1 + Math.random()*0.1; // z escapamento
+    // Posição inicial relativa ao escapamento
+    smokePositions[i*3+0] = -0.6 + (Math.random()-0.5)*0.15;
+    smokePositions[i*3+1] = 1.6 + Math.random()*0.2;
+    smokePositions[i*3+2] = -1 + (Math.random()-0.5)*0.15;
+    
+    smokeVelocities[i*3+0] = (Math.random()-0.5)*0.015;
+    smokeVelocities[i*3+1] = 0.025 + Math.random()*0.015;
+    smokeVelocities[i*3+2] = (Math.random()-0.5)*0.01;
 }
+
+const smokeGeometry = new THREE.BufferGeometry();
 smokeGeometry.setAttribute('position',new THREE.BufferAttribute(smokePositions,3));
+
 const smokeMaterial = new THREE.PointsMaterial({
     color:0x555555,
-    size:0.3,
-    transparent:true
-    , opacity: 0.6
+    size:0.28,
+    transparent:true,
+    opacity:0.65,
+    depthTest: true
 });
+
 const smoke = new THREE.Points(smokeGeometry, smokeMaterial);
-scene.add(smoke);
+player.add(smoke); // ← Agora é filho do player!
 player.userData.smoke = smoke;
+player.userData.smokeVelocities = smokeVelocities;
 
 // ---------- OBSTÁCULOS E ITENS ----------
 const obstacles = [];
@@ -356,16 +367,30 @@ function animate() {
         }
     }
 
-    // Fumaça
+    // Fumaça (agora relativa ao player)
     const positions = smoke.geometry.attributes.position.array;
+    const velocities = player.userData.smokeVelocities;
+
     for(let i=0;i<smokeCount;i++){
-        positions[i*3+1] += 0.02 + Math.random()*0.01; // sobe
-        positions[i*3+0] += (Math.random()-0.5)*0.01; // lateral
-        positions[i*3+2] += (Math.random()-0.5)*0.01; // lateral
-        if(positions[i*3+1] > 4){ // reset
-            positions[i*3+1] = 1.6 + Math.random()*0.2;
-            positions[i*3+0] = -0.6 + Math.random()*0.1;
-            positions[i*3+2] = -1 + Math.random()*0.1;
+        const idx = i*3;
+        
+        positions[idx]     += velocities[idx];     // x
+        positions[idx+1]   += velocities[idx+1];   // y
+        positions[idx+2]   += velocities[idx+2];   // z
+
+        // Suaviza o movimento lateral
+        velocities[idx] *= 0.98;
+        velocities[idx+2] *= 0.98;
+
+        // Reset quando subir demais
+        if(positions[idx+1] > 4.5){
+            positions[idx]   = -0.6 + (Math.random()-0.5)*0.2;
+            positions[idx+1] = 1.6 + Math.random()*0.25;
+            positions[idx+2] = -1 + (Math.random()-0.5)*0.2;
+            
+            velocities[idx]   = (Math.random()-0.5)*0.018;
+            velocities[idx+1] = 0.028 + Math.random()*0.018;
+            velocities[idx+2] = (Math.random()-0.5)*0.012;
         }
     }
     smoke.geometry.attributes.position.needsUpdate = true;
