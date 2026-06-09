@@ -164,71 +164,275 @@ function createScenery(z){
 }
 for(let i=0;i<25;i++) createScenery(-i*15);
 
-// ---------- TRATOR DETALHADO ----------
+// ---------- AGROFORTE ULTRA TRACTOR ----------
 const player = new THREE.Group();
 
-// Corpo
-const body = new THREE.Mesh(
-    new THREE.BoxGeometry(2,1,3),
-    new THREE.MeshPhongMaterial({color:0x2E7D32})
-);
-body.position.y=0.6;
-player.add(body);
+const greenMat = new THREE.MeshPhongMaterial({
+    color:0x2E7D32,
+    shininess:80
+});
 
-// Capô
-const hood = new THREE.Mesh(
-    new THREE.BoxGeometry(1.8,0.8,1.5),
-    new THREE.MeshPhongMaterial({color:0x388E3C})
+const darkMat = new THREE.MeshPhongMaterial({
+    color:0x1a1a1a
+});
+
+const metalMat = new THREE.MeshPhongMaterial({
+    color:0x777777,
+    shininess:120
+});
+
+const glassMat = new THREE.MeshPhongMaterial({
+    color:0xaadfff,
+    transparent:true,
+    opacity:0.45
+});
+
+// CHASSI
+const chassis = new THREE.Mesh(
+    new THREE.BoxGeometry(2.5,0.8,4),
+    greenMat
 );
-hood.position.set(0,0.9,-0.8);
+chassis.position.y=0.8;
+player.add(chassis);
+
+// CAPÔ
+const hood = new THREE.Mesh(
+    new THREE.BoxGeometry(2,1,2.4),
+    greenMat
+);
+hood.position.set(0,1.1,-1.2);
 player.add(hood);
 
-// Cabine com janelas
-const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.3,1.3,1.2),
-    new THREE.MeshPhongMaterial({color:0xffffff,transparent:true,opacity:0.6})
+// TOPO CAPÔ
+const hoodTop = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8,0.2,2.2),
+    greenMat
 );
-cabin.position.set(0,1.5,0.7);
+hoodTop.position.set(0,1.7,-1.2);
+player.add(hoodTop);
+
+// GRADE FRONTAL
+for(let i=0;i<8;i++){
+    const grill = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15,1.2,0.05),
+        darkMat
+    );
+
+    grill.position.set(
+        -0.55 + i*0.16,
+        1,
+        -2.45
+    );
+
+    player.add(grill);
+}
+
+// CONTRAPESO
+const weight = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,1,0.8),
+    darkMat
+);
+weight.position.set(0,0.6,-2.9);
+player.add(weight);
+
+// CABINE
+const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(2.1,2,2),
+    glassMat
+);
+cabin.position.set(0,2.2,0.8);
 player.add(cabin);
 
-// Escapamento
-const exhaust = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.08,0.08,1,8),
-    new THREE.MeshPhongMaterial({color:0x333333})
+// TETO
+const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4,0.25,2.2),
+    greenMat
 );
-exhaust.position.set(-0.6,1.6,-1);
-player.add(exhaust);
+roof.position.set(0,3.3,0.8);
+player.add(roof);
 
-// Faróis
-const headlightMat = new THREE.MeshPhongMaterial({color:0xFFD700,emissive:0xFFD700,emissiveIntensity:0.5});
-const light1 = new THREE.Mesh(new THREE.SphereGeometry(0.15,16,16),headlightMat);
-light1.position.set(-0.5,0.8,-1.6);
-player.add(light1);
-const light2 = light1.clone();
-light2.position.x=0.5;
-player.add(light2);
+// BANCO
+const seat = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8,1,0.8),
+    darkMat
+);
+seat.position.set(0,1.6,0.8);
+player.add(seat);
 
-// Rodas traseiras grandes
-const wheelMaterial = new THREE.MeshPhongMaterial({color:0x111111});
-const backWheelLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.6,20),wheelMaterial);
-backWheelLeft.rotation.z=Math.PI/2;
-backWheelLeft.position.set(-1.2,0.5,0.8);
-player.add(backWheelLeft);
-const backWheelRight=backWheelLeft.clone();
-backWheelRight.position.x=1.2;
-player.add(backWheelRight);
+// VOLANTE
+const wheel = new THREE.Mesh(
+    new THREE.TorusGeometry(0.3,0.05,8,20),
+    darkMat
+);
+wheel.position.set(-0.4,2,0);
+wheel.rotation.x=Math.PI/2;
+player.add(wheel);
 
-// Rodas dianteiras pequenas
-const frontWheelLeft=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.4,20),wheelMaterial);
-frontWheelLeft.rotation.z=Math.PI/2;
-frontWheelLeft.position.set(-1,0.4,-1);
-player.add(frontWheelLeft);
-const frontWheelRight=frontWheelLeft.clone();
-frontWheelRight.position.x=1;
-player.add(frontWheelRight);
+// ESCADAS
+for(let i=0;i<4;i++){
+    const step = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6,0.08,0.3),
+        metalMat
+    );
+
+    step.position.set(
+        1.5,
+        0.6 + i*0.35,
+        0.3
+    );
+
+    player.add(step);
+}
+
+// RETROVISORES
+for(let side of [-1,1]){
+    const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.05,0.4,0.05),
+        metalMat
+    );
+
+    arm.position.set(side*1.25,2.7,0.2);
+    player.add(arm);
+
+    const mirror = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3,0.25,0.08),
+        darkMat
+    );
+
+    mirror.position.set(side*1.35,2.8,0.2);
+    player.add(mirror);
+}
+
+// ESCAPAMENTOS DUPLOS
+for(let side of [-0.6,0.6]){
+    const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08,0.08,2),
+        metalMat
+    );
+
+    pipe.position.set(side,2.2,-1.8);
+    player.add(pipe);
+}
+
+// GIROFLEX
+for(let side of [-0.8,0.8]){
+    const beacon = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15,0.15,0.25,12),
+        new THREE.MeshPhongMaterial({
+            color:0xff9900,
+            emissive:0xff6600,
+            emissiveIntensity:1
+        })
+    );
+
+    beacon.position.set(side,3.55,0.8);
+    player.add(beacon);
+}
+
+// FARÓIS
+const headMat = new THREE.MeshPhongMaterial({
+    color:0xffffff,
+    emissive:0xffffff,
+    emissiveIntensity:2
+});
+
+for(let i=0;i<4;i++){
+
+    const light = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12,16,16),
+        headMat
+    );
+
+    light.position.set(
+        -0.6 + i*0.4,
+        1.3,
+        -2.3
+    );
+
+    player.add(light);
+}
+
+// RODAS
+const wheelMaterial = new THREE.MeshPhongMaterial({
+    color:0x111111
+});
+
+const rimMaterial = new THREE.MeshPhongMaterial({
+    color:0xffcc00
+});
+
+function createWheel(radius,width){
+
+    const group = new THREE.Group();
+
+    const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius,radius,width,24),
+        wheelMaterial
+    );
+
+    tire.rotation.z=Math.PI/2;
+
+    const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius*0.55,radius*0.55,width+0.02,20),
+        rimMaterial
+    );
+
+    rim.rotation.z=Math.PI/2;
+
+    group.add(tire);
+    group.add(rim);
+
+    return group;
+}
+
+const backLeft = createWheel(1.05,0.7);
+backLeft.position.set(-1.6,0.9,1.1);
+player.add(backLeft);
+
+const backRight = createWheel(1.05,0.7);
+backRight.position.set(1.6,0.9,1.1);
+player.add(backRight);
+
+const frontLeft = createWheel(0.7,0.5);
+frontLeft.position.set(-1.3,0.7,-1.5);
+player.add(frontLeft);
+
+const frontRight = createWheel(0.7,0.5);
+frontRight.position.set(1.3,0.7,-1.5);
+player.add(frontRight);
+
+// PARA-LAMAS
+for(let side of [-1.6,1.6]){
+
+    const fender = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4,0.25,1.4),
+        greenMat
+    );
+
+    fender.position.set(side,1.8,1.1);
+
+    player.add(fender);
+}
+
+// LOGO AGROFORTE
+const logo = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05,0.7,1.5),
+    new THREE.MeshPhongMaterial({
+        color:0xffd700
+    })
+);
+
+logo.position.set(1.27,1.5,-0.3);
+player.add(logo);
 
 scene.add(player);
-player.userData.wheels=[backWheelLeft,backWheelRight,frontWheelLeft,frontWheelRight];
+
+player.userData.wheels = [
+    backLeft,
+    backRight,
+    frontLeft,
+    frontRight
+];
 
 // ---------- FUMAÇA (agora como filho do player) ----------
 const smokeParticles = [];
