@@ -107,153 +107,253 @@ import * as THREE from 'three';
 
 // ---------- CENA ----------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB,30,120);
+scene.background = new THREE.Color(0xA4DEFC);
+scene.fog = new THREE.FogExp2(0xA4DEFC, 0.012);
 
 // ---------- CAMERA ----------
-const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
-camera.position.set(0,7,11);
-camera.lookAt(0,1,-5);
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 7.5, 12);
+camera.lookAt(0, 1.5, -4);
 
 // ---------- RENDERER ----------
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // ---------- LUZES ----------
-const sun = new THREE.DirectionalLight(0xffffff,1.8);
-sun.position.set(20,40,20);
+const sun = new THREE.DirectionalLight(0xfffaed, 2.0);
+sun.position.set(30, 50, 20);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
+scene.add(new THREE.AmbientLight(0xdff0ff, 0.6));
 
 // ---------- ESTADO ----------
 let gameRunning = true;
 let score = 0;
-const speed = 0.8;
+const speed = 0.85;
 const lanes = [-4,0,4];
 let currentLane = 1;
 
-// ---------- CHÃO E PLANTAÇÕES ----------
-const road = new THREE.Mesh(new THREE.PlaneGeometry(13,1000),new THREE.MeshPhongMaterial({color:0x6E3A0F}));
+// ---------- CHÃO AVANÇADO ----------
+const terrainGroup = new THREE.Group();
+
+// Estrada Principal com textura de terra batida
+const roadGeo = new THREE.PlaneGeometry(13, 1200);
+const roadMat = new THREE.MeshStandardMaterial({color: 0x5C3818, roughness: 0.9});
+const road = new THREE.Mesh(roadGeo, roadMat);
 road.rotation.x = -Math.PI/2;
-scene.add(road);
+terrainGroup.add(road);
 
-const grass = new THREE.Mesh(new THREE.PlaneGeometry(200,1000),new THREE.MeshPhongMaterial({color:0x3B7A23}));
-grass.rotation.x = -Math.PI/2;
-grass.position.y=-0.1;
-scene.add(grass);
+// Linha central de grama na estrada (trilho de trator)
+const centerGrassGeo = new THREE.PlaneGeometry(1.2, 1200);
+const centerGrassMat = new THREE.MeshStandardMaterial({color: 0x4D802B, roughness: 0.9});
+const centerGrass = new THREE.Mesh(centerGrassGeo, centerGrassMat);
+centerGrass.rotation.x = -Math.PI/2;
+centerGrass.position.y = 0.02;
+terrainGroup.add(centerGrass);
 
-// ---------- GERADOR DE DETALHES DO CENÁRIO ----------
+// Gramados laterais imensos com relevo simulado por blocos
+const grassGeo = new THREE.PlaneGeometry(300, 1200);
+const grassMat = new THREE.MeshStandardMaterial({color: 0x448026, roughness: 0.9});
+const grassLeft = new THREE.Mesh(grassGeo, grassMat);
+grassLeft.rotation.x = -Math.PI/2;
+grassLeft.position.set(0, -0.05, 0);
+terrainGroup.add(grassLeft);
+
+scene.add(terrainGroup);
+
+// ---------- MATERIAIS DO CENÁRIO ----------
+const woodMat = new THREE.MeshStandardMaterial({color: 0x4A2E16, roughness: 0.9});
+const leafDarkMat = new THREE.MeshStandardMaterial({color: 0x1B4D14, roughness: 0.8, flatShading: true});
+const leafLightMat = new THREE.MeshStandardMaterial({color: 0x2A6B1F, roughness: 0.8, flatShading: true});
+const wheatMat = new THREE.MeshStandardMaterial({color: 0xDAA520, roughness: 0.7});
+const rockMat = new THREE.MeshStandardMaterial({color: 0x7A7A7A, roughness: 0.9, flatShading: true});
+
 const sceneryItems = [];
-const windmillParts = [];
+const rotatingParts = [];
 const clouds = [];
 
-function createSceneryItem(z) {
+// ---------- MODELAGEM DE ESTRUTURAS ADICIONAIS ----------
+
+// Função para criar uma árvore ultra detalhada (Low-Poly Rica)
+function createDetailedTree() {
     const group = new THREE.Group();
-    const isLeft = Math.random() > 0.5;
-    const xBase = isLeft ? 10 + Math.random()*15 : -10 - Math.random()*15;
-    
-    const type = Math.random();
-    
-    if (type < 0.4) { // Árvore Comum
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,2.5), new THREE.MeshPhongMaterial({color:0x5D3A1A}));
-        const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.8,8,8), new THREE.MeshPhongMaterial({color:0x1E5913}));
-        leaves.position.y = 2.2;
-        group.add(trunk, leaves);
-        group.position.set(xBase, 1.25, z);
-    } 
-    else if (type < 0.7) { // Pinheiro / Araucária estilizada
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.4,3), new THREE.MeshPhongMaterial({color:0x422812}));
-        const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.5,2,8), new THREE.MeshPhongMaterial({color:0x124016}));
-        c1.position.y = 2;
-        const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.1,1.5,8), new THREE.MeshPhongMaterial({color:0x18541D}));
-        c2.position.y = 3;
-        group.add(trunk, c1, c2);
-        group.position.set(xBase, 1.5, z);
-    } 
-    else if (type < 0.9) { // Pequena Plantação Lateral (Linhas de Milho/Soja)
-        for(let i=0; i<3; i++) {
-            const crop = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 2), new THREE.MeshPhongMaterial({color: 0x8DA922}));
-            crop.position.set((isLeft ? 7 : -7) + (i*1.2), 0.6, z + (Math.random()*2));
-            scene.add(crop);
-            sceneryItems.push(crop);
-        }
-        return;
-    } 
-    else { // Pedra decorativa
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1 + Math.random(), 0), new THREE.MeshPhongMaterial({color:0x888888}));
-        rock.scale.set(1, 0.6, 1.4);
-        group.add(rock);
-        group.position.set(xBase, 0.3, z);
-    }
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 3.5, 5), woodMat);
+    trunk.position.y = 1.75;
+    group.add(trunk);
 
-    scene.add(group);
-    sceneryItems.push(group);
-}
-
-// Cercas laterais à beira da estrada
-function createFence(z) {
-    [-6.6, 6.6].forEach(x => {
-        const fenceGroup = new THREE.Group();
-        // Poste Vertical
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.15), new THREE.MeshPhongMaterial({color: 0x5c4033}));
-        post.position.y = 0.6;
-        fenceGroup.add(post);
-        // Barra Horizontal
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 15), new THREE.MeshPhongMaterial({color: 0x4a3329}));
-        bar.position.set(0, 0.8, -7.5);
-        fenceGroup.add(bar);
-        
-        fenceGroup.position.set(x, 0, z);
-        scene.add(fenceGroup);
-        sceneryItems.push(fenceGroup);
+    // Copa composta de várias esferas para formato orgânico
+    const leavesGroup = new THREE.Group();
+    const positions = [
+        [0, 3.5, 0, 1.8], [0.8, 3.0, 0.5, 1.3], [-0.8, 3.2, -0.4, 1.4],
+        [0.4, 4.2, -0.5, 1.2], [-0.4, 4.0, 0.6, 1.3]
+    ];
+    positions.forEach(p => {
+        const leaf = new THREE.Mesh(new THREE.DodecahedronGeometry(p[3], 0), Math.random() > 0.5 ? leafDarkMat : leafLightMat);
+        leaf.position.set(p[0], p[1], p[2]);
+        leavesGroup.add(leaf);
     });
+    group.add(leavesGroup);
+    return group;
 }
 
-// Inicializa cenário linear
-for(let i=0; i<30; i++) {
-    createSceneryItem(-i * 12);
-    if(i % 2 === 0) createFence(-i * 12);
-}
+// Função para criar Pinheiros densos
+function createPineTree() {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.4, 4, 4), woodMat);
+    trunk.position.y = 2;
+    group.add(trunk);
 
-// ---------- MOINHO DE VENTO (DETALHE AO FUNDO) ----------
-const windmill = new THREE.Group();
-const moinhoBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2.5, 9, 8), new THREE.MeshPhongMaterial({color: 0xDCDCDC}));
-moinhoBase.position.y = 4.5;
-const moinhoTeto = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.5, 8), new THREE.MeshPhongMaterial({color: 0x8B0000}));
-moinhoTeto.position.y = 9.5;
-windmill.add(moinhoBase, moinhoTeto);
-
-const heliceGroup = new THREE.Group();
-heliceGroup.position.set(0, 8.8, 1.6);
-for(let i=0; i<4; i++) {
-    const pa = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.05), new THREE.MeshPhongMaterial({color: 0xFFFFFF}));
-    pa.position.y = 2;
-    const paPivot = new THREE.Group();
-    paPivot.rotation.z = (Math.PI / 2) * i;
-    paPivot.add(pa);
-    heliceGroup.add(paPivot);
-}
-windmill.add(heliceGroup);
-windmillParts.push(heliceGroup);
-windmill.position.set(-25, 0, -60);
-scene.add(windmill);
-
-// ---------- NUVENS ----------
-function createCloud() {
-    const cloud = new THREE.Group();
-    const mat = new THREE.MeshPhongMaterial({color: 0xFFFFFF, flatShading: true, transparent: true, opacity: 0.9});
-    const numBlobs = 3 + Math.floor(Math.random()*3);
-    for(let i=0; i<numBlobs; i++){
-        const blob = new THREE.Mesh(new THREE.DodecahedronGeometry(2 + Math.random()*2, 0), mat);
-        blob.position.set(i*2.2, Math.random(), Math.random());
-        cloud.add(blob);
+    for(let i=0; i<4; i++) {
+        const layer = new THREE.Mesh(new THREE.ConeGeometry(2.2 - (i*0.4), 1.8, 5), leafDarkMat);
+        layer.position.y = 2.5 + (i * 1.1);
+        group.add(layer);
     }
-    cloud.position.set(Math.random()*100 - 50, 20 + Math.random()*10, -150 - Math.random()*100);
+    return group;
+}
+
+// Criar Cerca Realista com Fios
+function createDetailedFence(x, z) {
+    const fenceGroup = new THREE.Group();
+    
+    // 3 Postes principais
+    for(let i=0; i<3; i++) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.4, 0.2), woodMat);
+        post.position.set(0, 0.7, -i * 5);
+        fenceGroup.add(post);
+    }
+    // Traves horizontais duplas
+    for(let h of [0.5, 1.1]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 10.2), woodMat);
+        bar.position.set(0, h, -5);
+        fenceGroup.add(bar);
+    }
+    fenceGroup.position.set(x, 0, z);
+    scene.add(fenceGroup);
+    sceneryItems.push(fenceGroup);
+}
+
+// Construção do Grande Celeiro Americano Fixo nas Laterais
+function createBarn(x, z) {
+    const barn = new THREE.Group();
+    const redMat = new THREE.MeshStandardMaterial({color: 0x991F1F, roughness: 0.7});
+    const whiteMat = new THREE.MeshStandardMaterial({color: 0xEEEEEE, roughness: 0.5});
+    
+    const base = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 12), redMat);
+    base.position.y = 3;
+    
+    const roofLeft = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.3, 12.4), whiteMat);
+    roofLeft.position.set(-2, 6.3, 0);
+    roofLeft.rotation.z = 0.5;
+    
+    const roofRight = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.3, 12.4), whiteMat);
+    roofRight.position.set(2, 6.3, 0);
+    roofRight.rotation.z = -0.5;
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.5, 3), whiteMat);
+    door.position.set(x > 0 ? -4.01 : 4.01, 1.75, 0);
+
+    barn.add(base, roofLeft, roofRight, door);
+    barn.position.set(x, 0, z);
+    scene.add(barn);
+    sceneryItems.push(barn);
+}
+
+// Criação do Moinho de Vento Rústico Detalhado
+function createDetailedWindmill(x, z) {
+    const mill = new THREE.Group();
+    
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(1, 2, 11, 6), new THREE.MeshStandardMaterial({color: 0xDCDCDC, roughness: 0.8}));
+    tower.position.y = 5.5;
+    
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), new THREE.MeshStandardMaterial({color: 0x333333}));
+    cap.position.y = 11;
+    
+    const wheelGroup = new THREE.Group();
+    wheelGroup.position.set(0, 11, 1.3);
+    
+    for(let i=0; i<8; i++) {
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5, 0.04), new THREE.MeshStandardMaterial({color: 0xEEEEEE}));
+        blade.position.y = 2.5;
+        const pivot = new THREE.Group();
+        pivot.rotation.z = (Math.PI / 4) * i;
+        pivot.add(blade);
+        wheelGroup.add(pivot);
+    }
+    
+    mill.add(tower, cap, wheelGroup);
+    rotatingParts.push(wheelGroup);
+    mill.position.set(x, 0, z);
+    scene.add(mill);
+    sceneryItems.push(mill);
+}
+
+// ---------- MONTAGEM POPULADA DO CENÁRIO ----------
+function initScenery() {
+    for (let z = 0; z > -300; z -= 14) {
+        // Lado Esquerdo
+        if (Math.random() > 0.4) {
+            const tree = createDetailedTree();
+            tree.position.set(-11 - Math.random()*8, 0, z);
+            scene.add(tree); sceneryItems.push(tree);
+        } else {
+            const pine = createPineTree();
+            pine.position.set(-12 - Math.random()*6, 0, z);
+            scene.add(pine); sceneryItems.push(pine);
+        }
+
+        // Lado Direito
+        if (Math.random() > 0.4) {
+            const tree = createDetailedTree();
+            tree.position.set(11 + Math.random()*8, 0, z);
+            scene.add(tree); sceneryItems.push(tree);
+        } else {
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1 + Math.random()*1.5, 0), rockMat);
+            rock.position.set(13 + Math.random()*5, 0.5, z);
+            scene.add(rock); sceneryItems.push(rock);
+        }
+
+        // Plantações de trigo volumosas paralelas à estrada
+        for (let i = 0; i < 5; i++) {
+            const wheatLineL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 6), wheatMat);
+            wheatLineL.position.set(-7.5 - (i*0.9), 0.8, z);
+            const wheatLineR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 6), wheatMat);
+            wheatLineR.position.set(7.5 + (i*0.9), 0.8, z);
+            scene.add(wheatLineL, wheatLineR);
+            sceneryItems.push(wheatLineL, wheatLineR);
+        }
+
+        // Cercas ao longo das margens
+        if (z % 28 === 0) {
+            createDetailedFence(-6.8, z);
+            createDetailedFence(6.8, z);
+        }
+    }
+
+    // Estruturas grandes fixas e marcantes
+    createDetailedWindmill(-24, -50);
+    createDetailedWindmill(-28, -180);
+    createBarn(26, -90);
+    createBarn(28, -220);
+}
+initScenery();
+
+// ---------- NUVENS DETALHADAS ----------
+function createAdvancedCloud() {
+    const cloud = new THREE.Group();
+    const cloudMat = new THREE.MeshStandardMaterial({color: 0xFFFFFF, roughness: 0.9, flatShading: true});
+    const segments = 4 + Math.floor(Math.random()*4);
+    for(let i=0; i<segments; i++) {
+        const size = 2.5 + Math.random()*3;
+        const part = new THREE.Mesh(new THREE.DodecahedronGeometry(size, 0), cloudMat);
+        part.position.set(i * 3.2, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5);
+        cloud.add(part);
+    }
+    cloud.position.set(Math.random()*160 - 80, 24 + Math.random()*8, -100 - Math.random()*150);
     scene.add(cloud);
     clouds.push(cloud);
 }
-for(let i=0; i<8; i++) createCloud();
+for(let i=0; i<12; i++) createAdvancedCloud();
 
 
 // ---------- AGROFORTE ULTRA TRACTOR ----------
@@ -265,19 +365,11 @@ const metalMat = new THREE.MeshPhongMaterial({color:0x777777, shininess:120});
 const glassMat = new THREE.MeshPhongMaterial({color:0xaadfff, transparent:true, opacity:0.45});
 
 // CHASSI
-const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.8,4), greenMat);
-chassis.position.y=0.8;
-player.add(chassis);
-
+const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.8,4), greenMat); chassis.position.y=0.8; player.add(chassis);
 // CAPÔ
-const hood = new THREE.Mesh(new THREE.BoxGeometry(2,1,2.4), greenMat);
-hood.position.set(0,1.1,-1.2);
-player.add(hood);
-
+const hood = new THREE.Mesh(new THREE.BoxGeometry(2,1,2.4), greenMat); hood.position.set(0,1.1,-1.2); player.add(hood);
 // TOPO CAPÔ
-const hoodTop = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.2,2.2), greenMat);
-hoodTop.position.set(0,1.7,-1.2);
-player.add(hoodTop);
+const hoodTop = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.2,2.2), greenMat); hoodTop.position.set(0,1.7,-1.2); player.add(hoodTop);
 
 // GRADE FRONTAL
 for(let i=0;i<8;i++){
@@ -286,67 +378,32 @@ for(let i=0;i<8;i++){
     player.add(grill);
 }
 
-// CONTRAPESO
-const weight = new THREE.Mesh(new THREE.BoxGeometry(1.5,1,0.8), darkMat);
-weight.position.set(0,0.6,-2.9);
-player.add(weight);
+const weight = new THREE.Mesh(new THREE.BoxGeometry(1.5,1,0.8), darkMat); weight.position.set(0,0.6,-2.9); player.add(weight);
+const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.1,2,2), glassMat); cabin.position.set(0,2.2,0.8); player.add(cabin);
+const roof = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.25,2.2), greenMat); roof.position.set(0,3.3,0.8); player.add(roof);
+const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8,1,0.8), darkMat); seat.position.set(0,1.6,0.8); player.add(seat);
+const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.05,8,20), darkMat); wheel.position.set(-0.4,2,0); wheel.rotation.x=Math.PI/2; player.add(wheel);
 
-// CABINE
-const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.1,2,2), glassMat);
-cabin.position.set(0,2.2,0.8);
-player.add(cabin);
-
-// TETO
-const roof = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.25,2.2), greenMat);
-roof.position.set(0,3.3,0.8);
-player.add(roof);
-
-// BANCO
-const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8,1,0.8), darkMat);
-seat.position.set(0,1.6,0.8);
-player.add(seat);
-
-// VOLANTE
-const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.05,8,20), darkMat);
-wheel.position.set(-0.4,2,0);
-wheel.rotation.x=Math.PI/2;
-player.add(wheel);
-
-// ESCADAS
 for(let i=0;i<4;i++){
     const step = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.08,0.3), metalMat);
     step.position.set(1.5, 0.6 + i*0.35, 0.3);
     player.add(step);
 }
 
-// RETROVISORES
 for(let side of [-1,1]){
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.4,0.05), metalMat);
-    arm.position.set(side*1.25,2.7,0.2);
-    player.add(arm);
-
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.25,0.08), darkMat);
-    mirror.position.set(side*1.35,2.8,0.2);
-    player.add(mirror);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.4,0.05), metalMat); arm.position.set(side*1.25,2.7,0.2); player.add(arm);
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.25,0.08), darkMat); mirror.position.set(side*1.35,2.8,0.2); player.add(mirror);
 }
 
-// ESCAPAMENTOS DUPLOS
 for(let side of [-0.6,0.6]){
-    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2), metalMat);
-    pipe.position.set(side,2.2,-1.8);
-    player.add(pipe);
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2), metalMat); pipe.position.set(side,2.2,-1.8); player.add(pipe);
 }
 
-// GIROFLEX
 for(let side of [-0.8,0.8]){
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.25,12), new THREE.MeshPhongMaterial({
-        color:0xff9900, emissive:0xff6600, emissiveIntensity:1
-    }));
-    beacon.position.set(side,3.55,0.8);
-    player.add(beacon);
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.25,12), new THREE.MeshPhongMaterial({color:0xff9900, emissive:0xff6600, emissiveIntensity:1}));
+    beacon.position.set(side,3.55,0.8); player.add(beacon);
 }
 
-// FARÓIS
 const headMat = new THREE.MeshPhongMaterial({color:0xffffff, emissive:0xffffff, emissiveIntensity:2});
 for(let i=0;i<4;i++){
     const light = new THREE.Mesh(new THREE.SphereGeometry(0.12,16,16), headMat);
@@ -354,18 +411,14 @@ for(let i=0;i<4;i++){
     player.add(light);
 }
 
-// RODAS
 const wheelMaterial = new THREE.MeshPhongMaterial({color:0x111111});
 const rimMaterial = new THREE.MeshPhongMaterial({color:0xffcc00});
 
 function createWheel(radius,width){
     const group = new THREE.Group();
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,width,24), wheelMaterial);
-    tire.rotation.z=Math.PI/2;
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius*0.55,radius*0.55,width+0.02,20), rimMaterial);
-    rim.rotation.z=Math.PI/2;
-    group.add(tire, rim);
-    return group;
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,width,24), wheelMaterial); tire.rotation.z=Math.PI/2;
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius*0.55,radius*0.55,width+0.02,20), rimMaterial); rim.rotation.z=Math.PI/2;
+    group.add(tire, rim); return group;
 }
 
 const backLeft = createWheel(1.05,0.7); backLeft.position.set(-1.6,0.9,1.1); player.add(backLeft);
@@ -373,20 +426,13 @@ const backRight = createWheel(1.05,0.7); backRight.position.set(1.6,0.9,1.1); pl
 const frontLeft = createWheel(0.7,0.5); frontLeft.position.set(-1.3,0.7,-1.5); player.add(frontLeft);
 const frontRight = createWheel(0.7,0.5); frontRight.position.set(1.3,0.7,-1.5); player.add(frontRight);
 
-// PARA-LAMAS
 for(let side of [-1.6,1.6]){
-    const fender = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.25,1.4), greenMat);
-    fender.position.set(side,1.8,1.1);
-    player.add(fender);
+    const fender = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.25,1.4), greenMat); fender.position.set(side,1.8,1.1); player.add(fender);
 }
 
-// LOGO AGROFORTE
-const logo = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.7,1.5), new THREE.MeshPhongMaterial({color:0xffd700}));
-logo.position.set(1.27,1.5,-0.3);
-player.add(logo);
+const logo = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.7,1.5), new THREE.MeshPhongMaterial({color:0xffd700})); logo.position.set(1.27,1.5,-0.3); player.add(logo);
 
 scene.add(player);
-
 player.userData.wheels = [backLeft, backRight, frontLeft, frontRight];
 
 // ---------- FUMAÇA ----------
@@ -401,14 +447,14 @@ function resetSmokeParticle(idx) {
     smokePositions[idx+2] = -1.8 + (Math.random()-0.5)*0.15;
     
     smokeVelocities[idx]   = (Math.random()-0.5)*0.015;
-    smokeVelocities[idx+1] = 0.025 + Math.random()*0.015;
+    smokeVelocities[idx+1] = 0.028 + Math.random()*0.015;
     smokeVelocities[idx+2] = (Math.random()-0.5)*0.01;
 }
 for(let i=0;i<smokeCount;i++) resetSmokeParticle(i*3);
 
 const smokeGeometry = new THREE.BufferGeometry();
 smokeGeometry.setAttribute('position',new THREE.BufferAttribute(smokePositions,3));
-const smokeMaterial = new THREE.PointsMaterial({color:0x555555, size:0.28, transparent:true, opacity:0.65, depthTest: true});
+const smokeMaterial = new THREE.PointsMaterial({color:0x444444, size:0.3, transparent:true, opacity:0.6, depthTest: true});
 const smoke = new THREE.Points(smokeGeometry, smokeMaterial);
 player.add(smoke); 
 player.userData.smokeVelocities = smokeVelocities;
@@ -428,19 +474,27 @@ window.addEventListener('keydown', (e) => {
 function spawn() {
     if (!gameRunning) return;
     const lane = lanes[Math.floor(Math.random() * 3)];
-    if (Math.random() > 0.45) { // Obstáculo: Tambor de Poluição
-        const obs = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8, 12), new THREE.MeshPhongMaterial({color: 0x222222, darkMat}));
-        obs.position.set(lane, 0.9, -100);
-        scene.add(obs);
-        obstacles.push(obs);
-    } else { // Item: Semente Dourada
-        const item = new THREE.Mesh(new THREE.SphereGeometry(0.6,16,16), new THREE.MeshPhongMaterial({color:0xFFD700, emissive:0xaa7700}));
-        item.position.set(lane,1,-100);
-        scene.add(item);
-        items.push(item);
+    if (Math.random() > 0.45) { // Obstáculo: Tambor industrial de poluição perigosa
+        const obsGroup = new THREE.Group();
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.8, 12), new THREE.MeshStandardMaterial({color: 0x222222, roughness: 0.5}));
+        const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.4, 12), new THREE.MeshStandardMaterial({color: 0xCC0000}));
+        stripe.position.y = 0.2;
+        obsGroup.add(barrel, stripe);
+        obsGroup.position.set(lane, 0.9, -120);
+        scene.add(obsGroup);
+        obstacles.push(obsGroup);
+    } else { // Item: Super Semente de Ouro Reluzente
+        const itemGroup = new THREE.Group();
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshStandardMaterial({color: 0xFFD700, emissive: 0x886600}));
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.1, 4, 16), new THREE.MeshStandardMaterial({color: 0xFFFF00}));
+        ring.rotation.x = Math.PI/2;
+        itemGroup.add(core, ring);
+        itemGroup.position.set(lane, 1.2, -120);
+        scene.add(itemGroup);
+        items.push(itemGroup);
     }
 }
-setInterval(spawn, 850);
+setInterval(spawn, 800);
 
 // ---------- GAME OVER ----------
 function endGame() {
@@ -449,10 +503,8 @@ function endGame() {
     document.getElementById('finalScore').innerText = score;
 }
 
-// ---------- REINICIAR ----------
 window.restartGame = () => location.reload();
 
-// ---------- RESPONSIVO ----------
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -468,32 +520,28 @@ function animate() {
         return;
     }
 
-    // Movimento lateral do trator
-    player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.15);
-    player.userData.wheels.forEach(w => w.rotation.x += 0.15);
+    // Movimentação fluida lateral do trator
+    player.position.x = THREE.MathUtils.lerp(player.position.x, lanes[currentLane], 0.18);
+    player.userData.wheels.forEach(w => w.rotation.x += 0.18);
 
-    // Gira as hélices do Moinho
-    windmillParts.forEach(p => p.rotation.z += 0.015);
+    // Rotação dinâmica das pás de todos os moinhos do mapa
+    rotatingParts.forEach(p => p.rotation.z += 0.02);
 
-    // Nuvens se movendo lentamente
+    // Deslocamento natural das nuvens no céu
     clouds.forEach(c => {
-        c.position.x += 0.02;
-        if(c.position.x > 60) c.position.x = -60;
+        c.position.x += 0.03;
+        if(c.position.x > 90) c.position.x = -90;
     });
 
-    // Movimentação do Cenário Geral (Árvores, cercas, plantações)
+    // Loop infinito integrado do cenário rico
     sceneryItems.forEach(item => {
         item.position.z += speed;
-        if(item.position.z > 25){
-            item.position.z = -250;
-            // Se for um grupo genérico (árvore/pedra), sorteia nova posição X lateral
-            if(item.type === "Group" && item.position.x !== -6.6 && item.position.x !== 6.6) {
-                item.position.x = Math.random() > 0.5 ? 10 + Math.random()*15 : -10 - Math.random()*15;
-            }
+        if(item.position.z > 30){
+            item.position.z = -270;
         }
     });
 
-    // Obstáculos
+    // Validação de colisão de Obstáculos
     for(let i = obstacles.length-1; i >= 0; i--){
         const obs = obstacles[i];
         obs.position.z += speed;
@@ -503,22 +551,22 @@ function animate() {
             obstacles.splice(i,1);
             continue;
         }
-        if(obs.position.z > -1.5 && obs.position.z < 1.5 && Math.abs(obs.position.x - player.position.x) < 1.6){
+        if(obs.position.z > -1.6 && obs.position.z < 1.6 && Math.abs(obs.position.x - player.position.x) < 1.6){
             endGame();
         }
     }
 
-    // Itens
+    // Coleta de Itens
     for(let i = items.length-1; i >= 0; i--){
         const item = items[i];
         item.position.z += speed;
-        item.rotation.y += 0.05;
+        item.rotation.y += 0.06;
         if(item.position.z > 15){
             scene.remove(item);
             items.splice(i,1);
             continue;
         }
-        if(item.position.z > -1.5 && item.position.z < 1.5 && Math.abs(item.position.x - player.position.x) < 1.6){
+        if(item.position.z > -1.6 && item.position.z < 1.6 && Math.abs(item.position.x - player.position.x) < 1.6){
             scene.remove(item);
             items.splice(i,1);
             score += 10;
@@ -526,7 +574,7 @@ function animate() {
         }
     }
 
-    // Partículas de fumaça
+    // Simulação física da fumaça do escapamento
     const positions = smoke.geometry.attributes.position.array;
     const velocities = player.userData.smokeVelocities;
 
@@ -536,10 +584,10 @@ function animate() {
         positions[idx+1]   += velocities[idx+1];
         positions[idx+2]   += velocities[idx+2];
 
-        velocities[idx] *= 0.98;
-        velocities[idx+2] *= 0.98;
+        velocities[idx] *= 0.97;
+        velocities[idx+2] *= 0.97;
 
-        if(positions[idx+1] > 6.0){
+        if(positions[idx+1] > 6.5){
             resetSmokeParticle(idx);
         }
     }
